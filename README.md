@@ -45,6 +45,7 @@ Run SZNS once, open **Shortcuts** on the Mac, create a shortcut, and search for 
 - **Switch SZNS Decoration** turns a layer on, turns it off or toggles it.
 - **Apply SZNS Scene** recalls a named scene, including its colors, bulbs and cable settings.
 - **Set SZNS Light Pattern** sets a strand’s animation, speed and variation.
+- **Adjust SZNS Light Setting** changes one setting, such as bulb size, white-light temperature or cable drop height.
 - **Set SZNS Desktop Effect** selects an effect with the amount, size, speed, wind and pointer repulsion you specify.
 
 For example, make a shortcut named **Start Firefly Hour**, add **Apply SZNS Scene**, and choose **Firefly Hour**. Then ask Siri to “Start Firefly Hour.” macOS exposes App Intents as actions for user-created shortcuts. [Apple’s App Shortcuts guide](https://developer.apple.com/design/human-interface-guidelines/app-shortcuts)

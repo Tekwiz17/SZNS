@@ -103,7 +103,7 @@ final class Studio: ObservableObject {
                   art.size.width > 0, art.size.height > 0 else { throw StudioError.invalidSVG }
             let dim = 128
             guard let bmp = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: dim, pixelsHigh: dim,
-                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, colorSpaceName: .deviceRGB,
+                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
                        bytesPerRow: 0, bitsPerPixel: 0), let graphics = NSGraphicsContext(bitmapImageRep: bmp)
             else { throw StudioError.invalidSVG }
             NSGraphicsContext.saveGraphicsState()

@@ -109,3 +109,58 @@ struct SetLightPatternIntent: AppIntent {
     }
 }
 
+
+enum StrandSetting: String, AppEnum {
+    case size, spacing, density, opacity, temperature, thickness, span, sag, interval, wavelength
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Strand Setting"
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .size: "Bulb size (points)", .spacing: "Bulb distance (points)", .density: "Density (%)",
+        .opacity: "Opacity (%)", .temperature: "Temperature (kelvin)", .thickness: "Cable thickness (points)",
+        .span: "Cable drop width (points)", .sag: "Cable drop height (points)",
+        .interval: "Pattern interval (bulbs)", .wavelength: "Wavelength (bulbs)"
+    ]
+    var limits: ClosedRange<Double> {
+        switch self {
+        case .size: return 3...28
+        case .spacing: return 8...90
+        case .density, .opacity: return 5...100
+        case .temperature: return 1800...10000
+        case .thickness: return 0.5...5
+        case .span: return 30...520
+        case .sag: return 0...70
+        case .interval: return 2...24
+        case .wavelength: return 2...48
+        }
+    }
+}
+struct SetStrandValueIntent: AppIntent {
+    static var title: LocalizedStringResource = "Adjust SZNS Light Setting"
+    @Parameter(title: "String") var strand: StrandChoice
+    @Parameter(title: "Setting") var setting: StrandSetting
+    @Parameter(title: "Value") var value: Double
+    static var parameterSummary: some ParameterSummary { Summary("Set \(\.$strand) \(\.$setting) to \(\.$value)") }
+    @MainActor func perform() async throws -> some IntentResult {
+        let range = setting.limits
+        guard range.contains(value) else {
+            throw NSError(domain: "SZNS", code: 1, userInfo: [NSLocalizedDescriptionKey:
+                "Choose a value from \(range.lowerBound) to \(range.upperBound)."])
+        }
+        let studio = Studio.shared
+        let path: WritableKeyPath<Scene, Lights> = strand == .dock ? \.dock : \.menu
+        var light = studio.prefs.scene[keyPath: path]
+        switch setting {
+        case .size: light.size = value
+        case .spacing: light.spacing = value
+        case .density: light.density = value / 100
+        case .opacity: light.opacity = value / 100
+        case .temperature: light.temperature = value; light.useTemperature = true
+        case .thickness: light.thickness = value
+        case .span: light.span = value
+        case .sag: light.sag = value
+        case .interval: light.interval = value.rounded()
+        case .wavelength: light.waveLength = value.rounded()
+        }
+        studio.prefs.scene[keyPath: path] = light; studio.save()
+        return .result()
+    }
+}

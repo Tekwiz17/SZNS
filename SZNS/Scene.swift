@@ -8,11 +8,11 @@ enum Bulb: String, CaseIterable, Codable {
     case lantern = "Lantern", digits = "Year digits", year = "Year badge"
     case blossom = "Blossom", sun = "Sun", shell = "Shell", pine = "Pine", custom = "Imported SVG"
 }
-enum Pattern: String, CaseIterable, Codable {
+enum Pattern: String, CaseIterable, Codable, Sendable {
     case steady = "Always on", off = "Lights out", pulse = "Pulse", twinkle = "Twinkle"
     case chase = "Chase", wave = "Wave", every = "Every Nth"
 }
-enum Effect: String, CaseIterable, Codable {
+enum Effect: String, CaseIterable, Codable, Sendable {
     case snow = "Snow", leaves = "Leaves", petals = "Petals", fireflies = "Fireflies", fireworks = "Fireworks", rain = "Rain"
 }
 enum PointerStyle: String, CaseIterable, Codable {

@@ -80,7 +80,7 @@ enum WeatherDrawing {
     }
 }
 
-enum Layer: String, CaseIterable { case menu = "Menu Bar", dock = "Dock", desktop = "Desktop" }
+enum Layer: String, CaseIterable, Sendable { case menu = "Menu Bar", dock = "Dock", desktop = "Desktop" }
 
 struct ScenePreview: View {
     var scene: Scene
