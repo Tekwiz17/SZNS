@@ -193,6 +193,8 @@ struct DesktopSettings: View {
 struct GeneralSettings: View {
     @ObservedObject var studio: Studio
     @ObservedObject var nav: Navigation
+    @AppStorage("useWallpaperPreview") private var useWallpaper = false
+    @AppStorage("automaticReleaseChecks") private var automaticUpdates = false
     @State private var login = SMAppService.mainApp.status == .enabled
     @State private var approvalNeeded = SMAppService.mainApp.status == .requiresApproval
     var body: some View {
@@ -211,6 +213,7 @@ struct GeneralSettings: View {
                 }))
                 if approvalNeeded { Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() } }
                 EnumRow(title: "Save power", value: $studio.prefs.power)
+                Toggle("Use my wallpaper in previews", isOn: $useWallpaper)
             }
             Section("Accessibility") {
                 LabeledContent("Dock tracking") {
@@ -223,6 +226,7 @@ struct GeneralSettings: View {
             Section("About") {
                 LabeledContent("SZNS", value: "By Tekwiz17")
                 Link("Source code on GitHub", destination: Studio.source)
+                Toggle("Check for updates automatically", isOn: $automaticUpdates)
                 Button("Check for updates…") { Task { await studio.checkForUpdates() } }
                 Button("Replay welcome guide…") { nav.showingGuide = true }
                 Button("Quit SZNS") { NSApp.terminate(nil) }

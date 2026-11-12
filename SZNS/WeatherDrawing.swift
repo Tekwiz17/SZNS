@@ -85,6 +85,26 @@ enum Layer: String, CaseIterable, Sendable { case menu = "Menu Bar", dock = "Doc
 struct ScenePreview: View {
     var scene: Scene
     var focus: Layer? = nil
+    @AppStorage("useWallpaperPreview") private var useWallpaper = false
+    @State private var wallpaper: NSImage?
+    init(scene: Scene, focus: Layer? = nil) {
+        self.scene = scene
+        self.focus = focus
+    }
+    private func loadWallpaper() {
+        guard useWallpaper, let screen = NSScreen.main,
+              let url = NSWorkspace.shared.desktopImageURL(for: screen),
+              let original = NSImage(contentsOf: url), original.size.width > 0, original.size.height > 0 else {
+            wallpaper = nil; return
+        }
+        let scale = min(1, 900 / max(original.size.width, original.size.height))
+        let size = CGSize(width: original.size.width * scale, height: original.size.height * scale)
+        let thumb = NSImage(size: size)
+        thumb.lockFocus()
+        original.draw(in: CGRect(origin: .zero, size: size))
+        thumb.unlockFocus()
+        wallpaper = thumb
+    }
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { tick in
@@ -115,6 +135,11 @@ struct ScenePreview: View {
                     ridge.addLine(to: .init(x: w, y: h)); ridge.closeSubpath()
                     ctx.fill(ridge, with: .color(Color(rgb: 0x112f38).opacity(0.26 + Double(j) * 0.16)))
                 }
+                if useWallpaper, let wallpaper {
+                    let scale = max(w / wallpaper.size.width, h / wallpaper.size.height)
+                    let dw = wallpaper.size.width * scale, dh = wallpaper.size.height * scale
+                    ctx.draw(Image(nsImage: wallpaper), in: CGRect(x: (w - dw)/2, y: (h - dh)/2, width: dw, height: dh))
+                }
                 if focus == nil || focus == .desktop {
                     WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true)
                 }
@@ -140,6 +165,8 @@ struct ScenePreview: View {
                 }
             }
         }
+        .onAppear { loadWallpaper() }
+        .onChange(of: useWallpaper) { _, _ in loadWallpaper() }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityLabel("Preview of the current \(focus?.rawValue ?? "seasonal scene") settings")
     }

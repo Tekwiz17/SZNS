@@ -1,6 +1,6 @@
 import Foundation
 
-enum Bulb: String, CaseIterable, Codable {
+enum Bulb: String, CaseIterable, Codable, Sendable {
     case oval = "Classic", globe = "Globe", diode = "Diode", icicle = "Icicle"
     case heart = "Heart", star = "Star", snowflake = "Snowflake", moon = "Moon"
     case bat = "Bat", ghost = "Ghost", pumpkin = "Pumpkin", clover = "Clover"

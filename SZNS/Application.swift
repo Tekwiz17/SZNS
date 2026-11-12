@@ -31,6 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
         subscription = studio.$prefs.map(\.visibility).removeDuplicates().receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.updateVisibility($0) }
         overlays.start()
+        let defaults = UserDefaults.standard
+        if defaults.bool(forKey: "automaticReleaseChecks"),
+           Date.timeIntervalSinceReferenceDate - defaults.double(forKey: "lastReleaseCheck") > 86400 {
+            defaults.set(Date.timeIntervalSinceReferenceDate, forKey: "lastReleaseCheck")
+            Task { await studio.checkForUpdates(silent: true) }
+        }
         let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 let granted = Accessibility.granted

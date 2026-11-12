@@ -28,7 +28,7 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 
 | Settings | What you can change |
 | --- | --- |
-| General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving and Accessibility access, or replay the guide. |
+| General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving, wallpaper previews and Accessibility access. Check for new releases or replay the guide. |
 | Presets | Apply Cherry Orchard, Firefly Hour, Amber Grove or First Frost. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
 | Menu Bar | Choose placement above apps or on the desktop. Edit bulb design, spacing, size, density, pattern, speed, variation, opacity and pointer behavior. Adjust the wire color, thickness, span and sag. |
 | Dock | Independently configure the same settings for the Dock. Its strand follows the Dock’s visible bounds and orientation. |
@@ -45,6 +45,7 @@ Run SZNS once, open **Shortcuts** on the Mac, create a shortcut, and search for 
 - **Switch SZNS Decoration** turns a layer on, turns it off or toggles it.
 - **Apply SZNS Scene** recalls a named scene, including its colors, bulbs and cable settings.
 - **Set SZNS Light Pattern** sets a strand’s animation, speed and variation.
+- **Style SZNS Light String** sets a bulb design, placement, color palette or cable color.
 - **Adjust SZNS Light Setting** changes one setting, such as bulb size, white-light temperature or cable drop height.
 - **Set SZNS Desktop Effect** selects an effect with the amount, size, speed, wind and pointer repulsion you specify.
 
@@ -52,7 +53,7 @@ For example, make a shortcut named **Start Firefly Hour**, add **Apply SZNS Scen
 
 ## Build checks
 
-The **Build SZNS** workflow builds the Release scheme on macOS, checks the local signature, app icon and App Intents metadata, and packages the app. The settings and geometry checks can also run directly on a Mac with Xcode command-line tools:
+The **Build SZNS** workflow builds both Debug and Release on macOS, checks the local signature, app icon and all six Shortcuts actions, checks that first launch displays a native settings window, and packages the app. The settings and geometry checks can also run directly on a Mac with Xcode command-line tools:
 
 ~~~~sh
 swiftc SZNS/Scene.swift SZNS/DisplayGeometry.swift Tests/main.swift -o /tmp/szns-checks

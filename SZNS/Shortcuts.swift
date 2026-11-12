@@ -164,3 +164,52 @@ struct SetStrandValueIntent: AppIntent {
         return .result()
     }
 }
+
+extension Bulb: AppEnum {
+    static var typeDisplayRepresentation: TypeDisplayRepresentation = "Bulb Design"
+    static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .oval: "Classic", .globe: "Globe", .diode: "Diode", .icicle: "Icicle", .heart: "Heart",
+        .star: "Star", .snowflake: "Snowflake", .moon: "Moon", .bat: "Bat", .ghost: "Ghost",
+        .pumpkin: "Pumpkin", .clover: "Clover", .egg: "Egg", .leaf: "Leaf", .champagne: "Champagne",
+        .cocktail: "Cocktail", .wine: "Wine", .lantern: "Lantern", .digits: "Year digits", .year: "Year badge",
+        .blossom: "Blossom", .sun: "Sun", .shell: "Shell", .pine: "Pine", .custom: "Imported SVG"
+    ]
+}
+struct SetStrandStyleIntent: AppIntent {
+    static var title: LocalizedStringResource = "Style SZNS Light String"
+    static var description = IntentDescription("Change any combination of bulb design, placement, palette and cable color.")
+    @Parameter(title: "String") var strand: StrandChoice
+    @Parameter(title: "Bulb design") var bulb: Bulb?
+    @Parameter(title: "Show above apps") var aboveApps: Bool?
+    @Parameter(title: "Light colors (comma-separated hex RGB)") var palette: String?
+    @Parameter(title: "Cable color (hex RGB)") var cable: String?
+
+    private func rgb(_ input: Substring) throws -> Int {
+        let value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        let digits = value.hasPrefix("#") ? value.dropFirst() : value[...]
+        guard digits.count == 6, digits.allSatisfy({ $0.isHexDigit }), let number = Int(digits, radix: 16) else {
+            throw NSError(domain: "SZNS", code: 2, userInfo: [NSLocalizedDescriptionKey: "Use a six-digit RGB color such as #FFD795."])
+        }
+        return number
+    }
+    @MainActor func perform() async throws -> some IntentResult {
+        let studio = Studio.shared
+        let path: WritableKeyPath<Scene, Lights> = strand == .dock ? \.dock : \.menu
+        var light = studio.prefs.scene[keyPath: path]
+        if let bulb {
+            if bulb == .custom && light.customMask == nil {
+                throw NSError(domain: "SZNS", code: 3, userInfo: [NSLocalizedDescriptionKey: "Import an SVG for this strand in SZNS first."])
+            }
+            light.bulb = bulb
+        }
+        if let aboveApps { light.aboveApps = aboveApps }
+        if let cable { light.wire = try rgb(cable[...]) }
+        if let palette {
+            let values = try palette.split(separator: ",", omittingEmptySubsequences: false).map(rgb)
+            guard (1...16).contains(values.count) else { throw StudioError.invalidPalette }
+            light.colors = values; light.useTemperature = false
+        }
+        studio.prefs.scene[keyPath: path] = light; studio.save()
+        return .result()
+    }
+}

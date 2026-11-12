@@ -53,21 +53,28 @@ final class Studio: ObservableObject {
             try JSONEncoder().encode(prefs).write(to: url, options: .atomic)
         } catch { message = "Couldn’t save settings. \(error.localizedDescription)" }
     }
-    func checkForUpdates() async {
+    func checkForUpdates(silent: Bool = false) async {
         struct Release: Decodable { var tag_name: String }
         guard let endpoint = URL(string: "https://api.github.com/repos/Tekwiz17/SZNS/releases/latest") else { return }
         do {
             let (data, response) = try await URLSession.shared.data(from: endpoint)
             let status = (response as? HTTPURLResponse)?.statusCode
-            if status == 404 { message = "There are no published SZNS releases yet."; return }
+            if status == 404 {
+                if !silent { message = "There are no published SZNS releases yet." }
+                return
+            }
             guard status == 200 else { throw URLError(.badServerResponse) }
             let release = try JSONDecoder().decode(Release.self, from: data)
             let version = release.tag_name.trimmingCharacters(in: CharacterSet(charactersIn: "vV"))
             let installed = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
             if installed.compare(version, options: .numeric) == .orderedAscending {
-                NSWorkspace.shared.open(Self.source.appendingPathComponent("releases/latest"))
-            } else { message = "SZNS \(installed) is up to date." }
-        } catch { message = "Couldn’t check for updates. \(error.localizedDescription)" }
+                if silent {
+                    message = "SZNS \(release.tag_name) is available. Choose Check for updates in General to open the release."
+                } else {
+                    NSWorkspace.shared.open(Self.source.appendingPathComponent("releases/latest"))
+                }
+            } else if !silent { message = "SZNS \(installed) is up to date." }
+        } catch { if !silent { message = "Couldn’t check for updates. \(error.localizedDescription)" } }
     }
     func importPalette() {
         let panel = NSOpenPanel()

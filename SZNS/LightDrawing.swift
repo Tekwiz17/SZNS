@@ -5,7 +5,11 @@ enum EdgeMount { case top, left, right }
 
 enum LightDrawing {
     private static let calendarYear = String(Calendar.current.component(.year, from: Date()))
-    private static let maskCache = NSCache<NSData, NSImage>()
+    private static let maskCache: NSCache<NSData, NSImage> = {
+        let cache = NSCache<NSData, NSImage>()
+        cache.countLimit = 32
+        return cache
+    }()
 
     // The same path describes both the wire and the sockets, keeping each bulb attached.
     static func draw(in context: GraphicsContext, size: CGSize, lights: Lights, time: Double,
@@ -77,7 +81,8 @@ enum LightDrawing {
                     bulb.draw(mask, in: CGRect(x: -0.5, y: -0.5, width: 1, height: 1))
                 }
             } else if lights.bulb == .year || lights.bulb == .digits {
-                let str = lights.bulb == .year ? calendarYear : String(Array(calendarYear)[i % calendarYear.count])
+                let str = lights.bulb == .year ? String(calendarYear.prefix(2)) + "\n" + String(calendarYear.suffix(2))
+                                               : String(Array(calendarYear)[i % calendarYear.count])
                 let label = Text(str).font(.system(size: lights.bulb == .year ? 0.55 : 1, weight: .black))
                     .foregroundColor(color.opacity(0.25 + 0.75 * level))
                 bulb.draw(label, at: .zero)
