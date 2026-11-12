@@ -1,6 +1,7 @@
 import Foundation
+import CoreGraphics
 
-// Run with the two Foundation-only production sources. A failed check exits nonzero.
+// Run with the two production sources. A failed check exits nonzero.
 var passed = 0
 func check(_ name: String, _ assertion: @autoclosure () throws -> Bool) rethrows {
     guard try assertion() else { fatalError(name) }

@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 enum DockSide { case bottom, left, right }
 

@@ -6,7 +6,7 @@ jobs:
   build:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Check settings, patterns and Dock geometry
         run: |
           swiftc SZNS/Scene.swift SZNS/DisplayGeometry.swift Tests/main.swift -o "$RUNNER_TEMP/scene-checks"
@@ -22,6 +22,17 @@ jobs:
           test -s "$app/Contents/Resources/AppIcon.icns"
           test -s "$app/Contents/Resources/Metadata.appintents/extract.actionsdata"
           ditto -c -k --keepParent "$app" "$RUNNER_TEMP/SZNS-macOS.zip"
+      - name: Smoke-test app launch
+        run: |
+          app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
+          "$app/Contents/MacOS/SZNS" > "$RUNNER_TEMP/SZNS-launch.log" 2>&1 &
+          pid=$!
+          sleep 6
+          if ! kill -0 "$pid" 2>/dev/null; then
+            cat "$RUNNER_TEMP/SZNS-launch.log"
+            exit 1
+          fi
+          kill "$pid"
       - uses: actions/upload-artifact@v4
         with:
           name: SZNS-macOS
