@@ -1,0 +1,29 @@
+name: Build SZNS
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check settings, patterns and Dock geometry
+        run: |
+          swiftc SZNS/Scene.swift SZNS/DisplayGeometry.swift Tests/main.swift -o "$RUNNER_TEMP/scene-checks"
+          "$RUNNER_TEMP/scene-checks"
+      - name: Build the shared Xcode scheme
+        run: |
+          set -o pipefail
+          xcodebuild -project SZNS.xcodeproj -scheme SZNS -configuration Release -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/SZNSBuild" build
+      - name: Verify the app and Shortcuts metadata
+        run: |
+          app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
+          codesign --verify --strict "$app"
+          test -s "$app/Contents/Resources/AppIcon.icns"
+          test -s "$app/Contents/Resources/Metadata.appintents/extract.actionsdata"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/SZNS-macOS.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SZNS-macOS
+          path: ${{ runner.temp }}/SZNS-macOS.zip
+

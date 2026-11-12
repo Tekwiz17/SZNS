@@ -1,0 +1,132 @@
+import SwiftUI
+
+private struct Swatches: View {
+    let colors: [Int]
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(colors.prefix(6).enumerated()), id: \.offset) { _, value in
+                Circle().fill(Color(rgb: value)).overlay(Circle().stroke(.primary.opacity(0.12))).frame(width: 12, height: 12)
+            }
+        }.accessibilityHidden(true)
+    }
+}
+private enum PresetSheet: Identifiable {
+    case newScene, renameScene(Look), editPalette(Palette), newPalette
+    var id: String {
+        switch self {
+        case .newScene: return "new scene"
+        case .newPalette: return "new palette"
+        case .renameScene(let p): return p.id.uuidString
+        case .editPalette(let p): return p.id.uuidString
+        }
+    }
+}
+struct PresetSettings: View {
+    @ObservedObject var studio: Studio
+    @State private var sheet: PresetSheet?
+    @State private var removing: UUID?
+    @State private var overwrite: UUID?
+    var body: some View {
+        Form {
+            Section {
+                ForEach(studio.prefs.looks) { look in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(look.name)
+                            Text("\(look.scene.menu.bulb.rawValue) · \(look.scene.desktop.effect.rawValue)")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Swatches(colors: look.scene.menu.colors)
+                        Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
+                            .disabled(studio.prefs.scene == look.scene)
+                        Menu {
+                            Button("Rename…") { sheet = .renameScene(look) }
+                            Button("Update from current settings…") { overwrite = look.id }
+                            Button("Duplicate") { studio.prefs.looks.append(.init(name: look.name + " Copy", scene: look.scene)) }
+                            Divider()
+                            Button("Delete…", role: .destructive) { removing = look.id }
+                        } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + look.name)
+                    }
+                }
+                Button { sheet = .newScene } label: { Label("Save current scene…", systemImage: "plus") }
+            } header: { Text("Scenes") } footer: {
+                Text("A scene saves the Dock, menu bar and desktop together. After adjusting a scene, use its menu to save your changes.")
+            }
+            Section("Color palettes") {
+                ForEach(studio.prefs.palettes) { p in
+                    HStack {
+                        Text(p.name); Spacer(); Swatches(colors: p.colors)
+                        Menu("Apply to") {
+                            Button("Menu Bar") { studio.prefs.scene.menu.colors = p.colors; studio.prefs.scene.menu.useTemperature = false }
+                            Button("Dock") { studio.prefs.scene.dock.colors = p.colors; studio.prefs.scene.dock.useTemperature = false }
+                            Button("Desktop") { studio.prefs.scene.desktop.colors = p.colors }
+                        }.fixedSize()
+                        Menu {
+                            Button("Edit name and colors…") { sheet = .editPalette(p) }
+                            Button("Export…") { studio.exportPalette(p) }
+                            Button("Delete…", role: .destructive) { removing = p.id }
+                        } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + p.name)
+                    }
+                }
+                HStack {
+                    Button { sheet = .newPalette } label: { Label("New palette…", systemImage: "plus") }
+                    Spacer()
+                    Button("Import palette…") { studio.importPalette() }
+                }
+            }
+        }.formStyle(.grouped)
+        .sheet(item: $sheet) { item in
+            switch item {
+            case .newScene:
+                NameSheet(title: "Save current scene", initial: "My Scene") { studio.prefs.looks.append(.init(name: $0, scene: studio.prefs.scene)) }
+            case .renameScene(let look):
+                NameSheet(title: "Rename scene", initial: look.name) { name in
+                    if let i = studio.prefs.looks.firstIndex(where: { $0.id == look.id }) { studio.prefs.looks[i].name = name }
+                }
+            case .editPalette(let palette): paletteSheet(palette)
+            case .newPalette: paletteSheet(.init(name: "My Palette", colors: studio.prefs.scene.menu.colors))
+            }
+        }
+        .confirmationDialog("Delete this preset?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                            presenting: removing) { id in
+            Button("Delete preset", role: .destructive) {
+                studio.prefs.looks.removeAll { $0.id == id }; studio.prefs.palettes.removeAll { $0.id == id }
+            }
+        }
+        .confirmationDialog("Replace this saved scene with your current settings?",
+                            isPresented: Binding(get: { overwrite != nil }, set: { if !$0 { overwrite = nil } }),
+                            presenting: overwrite) { id in
+            Button("Update scene") {
+                if let i = studio.prefs.looks.firstIndex(where: { $0.id == id }) { studio.prefs.looks[i].scene = studio.prefs.scene }
+            }
+        }
+    }
+    private func paletteSheet(_ palette: Palette) -> some View {
+        EditPaletteView(draft: palette, studio: studio) { updated in
+            if let i = studio.prefs.palettes.firstIndex(where: { $0.id == updated.id }) { studio.prefs.palettes[i] = updated }
+            else { studio.prefs.palettes.append(updated) }
+        }
+    }
+}
+private struct EditPaletteView: View {
+    @Environment(\.dismiss) var dismiss
+    @State var draft: Palette
+    @ObservedObject var studio: Studio
+    var commit: (Palette) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Color palette").font(.headline)
+            TextField("Name", text: $draft.name).textFieldStyle(.roundedBorder)
+            PaletteEditor(colors: $draft.colors, studio: studio)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Save") {
+                    draft.name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    commit(draft); dismiss()
+                }.keyboardShortcut(.defaultAction).disabled(draft.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }.padding(22).frame(width: 380)
+    }
+}
