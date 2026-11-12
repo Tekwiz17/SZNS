@@ -64,6 +64,25 @@ jobs:
           guard hasSettingsWindow else { fatalError("SZNS started without a visible settings window") }
           print("First launch displayed the native settings window")
           SWIFT
+      - name: Check the running app against the system Dock
+        run: |
+          swiftc Tests/LiveDockCheck.swift -o "$RUNNER_TEMP/dock-check"
+          defaults write com.apple.dock autohide -bool false
+          defaults write com.apple.dock tilesize -int 48
+          app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
+          "$app/Contents/MacOS/SZNS" &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for side in bottom left right; do
+            defaults write com.apple.dock orientation -string "$side"
+            killall Dock
+            sleep 3
+            "$RUNNER_TEMP/dock-check" "$pid" "$side"
+          done
+          defaults write com.apple.dock autohide -bool true
+          killall Dock
+          sleep 3
+          "$RUNNER_TEMP/dock-check" "$pid" hidden
       - uses: actions/upload-artifact@v4
         with:
           name: SZNS-macOS
