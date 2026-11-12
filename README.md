@@ -1,0 +1,1 @@
+# SZNS_For_macOS
