@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
             MainActor.assumeIsolated {
                 let granted = Accessibility.granted
                 if self?.nav.trusted != granted { self?.nav.trusted = granted }
+                if let self, self.nav.dockStatus != self.overlays.dockStatus { self.nav.dockStatus = self.overlays.dockStatus }
             }
         }
         timer.tolerance = 0.3; RunLoop.main.add(timer, forMode: .common); permissionTimer = timer
@@ -102,6 +103,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
             let on = layer == .menu ? scene.menu.enabled : layer == .dock ? scene.dock.enabled : scene.desktop.enabled
             entry.tag = i; entry.state = on ? .on : .off; menu.addItem(entry)
         }
+        if !studio.prefs.looks.isEmpty {
+            menu.addItem(.separator())
+            let presets = NSMenuItem(title: "Apply Scene", action: nil, keyEquivalent: "")
+            let choices = NSMenu(title: "Apply Scene")
+            for look in studio.prefs.looks {
+                let choice = command(look.name, #selector(applyScene(_:)))
+                choice.representedObject = look.id
+                choice.state = studio.prefs.scene == look.scene ? .on : .off
+                choices.addItem(choice)
+            }
+            presets.submenu = choices
+            menu.addItem(presets)
+        }
         menu.addItem(.separator()); menu.addItem(command("Quit SZNS", #selector(quit), "q"))
     }
     @objc private func toggleLayer(_ sender: NSMenuItem) {
@@ -110,6 +124,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
         case .dock: studio.prefs.scene.dock.enabled.toggle()
         case .desktop: studio.prefs.scene.desktop.enabled.toggle()
         }
+    }
+    @objc private func applyScene(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? UUID, let look = studio.prefs.looks.first(where: { $0.id == id }) else { return }
+        studio.prefs.scene = look.scene
     }
     @objc private func quit() { NSApp.terminate(nil) }
 

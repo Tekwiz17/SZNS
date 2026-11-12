@@ -34,7 +34,8 @@ struct Lights: Codable, Equatable {
     var bulb = Bulb.oval
     var customMask: Data?
     var pattern = Pattern.twinkle
-    var size = 9.0, spacing = 24.0, speed = 1.0, variation = 0.35, density = 1.0, interval = 4.0
+    static let sizeRange = 3.0...64.0
+    var size = 22.0, spacing = 34.0, speed = 1.0, variation = 0.35, density = 1.0, interval = 4.0
     var waveLength = 12.0
     var colors = [0xffd795, 0xef986d, 0xfdeac8]
     var useTemperature = false
@@ -43,6 +44,17 @@ struct Lights: Codable, Equatable {
     var thickness = 1.4, span = 180.0, sag = 12.0
     var aboveApps = true
     var pointer = PointerStyle.none
+
+    // Keep the bulb body inside even a small or partly revealed Dock. The stored
+    // size and sag remain available when the Dock grows again.
+    func fittingDock(depth: Double) -> Lights {
+        var result = self
+        let available = max(1, depth - thickness - 2)
+        let bodyFactor = (1 + variation * 0.275) * 1.42
+        result.size = min(size, available / bodyFactor)
+        result.sag = min(sag, max(0, available - result.size * bodyFactor))
+        return result
+    }
 
     var depth: Double { ceil(sag + size * 2.4 + thickness + 10) }
 }
@@ -90,8 +102,8 @@ enum Season: String, CaseIterable {
         scene.dock = scene.menu
         scene.dock.sag = 2
         scene.dock.span = 90
-        scene.dock.size = 7
-        scene.dock.spacing = 18
+        scene.dock.size = 18
+        scene.dock.spacing = 27
         scene.desktop.colors = self == .winter ? [0xf2faff, 0xbce2f9] : colors
         return scene
     }
@@ -141,14 +153,14 @@ struct Celebration {
         scene.menu.pattern = pattern
         scene.menu.colors = colors
         scene.menu.speed = speed
-        scene.menu.size = 12
-        scene.menu.spacing = 29
+        scene.menu.size = 24
+        scene.menu.spacing = 36
         scene.dock = scene.menu
         scene.dock.bulb = dock
         scene.dock.sag = 2
         scene.dock.span = 90
-        scene.dock.size = 9
-        scene.dock.spacing = 21
+        scene.dock.size = 20
+        scene.dock.spacing = 30
         scene.desktop.effect = effect
         scene.desktop.size = size
         scene.desktop.speed = speed
@@ -166,7 +178,32 @@ struct Preferences: Codable, Equatable {
     // An absent revision identifies a preferences file written before the celebrations shipped.
     private(set) var celebrationRevision: Int?
 
-    init() { installCelebrationsIfNeeded() }
+    private(set) var bulbSizeRevision: Int?
+
+    init() {
+        installCelebrationsIfNeeded()
+        bulbSizeRevision = 1
+    }
+
+    // Replace only the exact stock scenes shipped in v1. A user's chosen bulb size,
+    // imported mask, renamed look, and Shortcuts identifier survive this upgrade.
+    @discardableResult
+    mutating func upgradeStockBulbsIfNeeded() -> Bool {
+        guard (bulbSizeRevision ?? 0) < 1 else { return false }
+        let stock = Season.allCases.map { ($0.scene, 9.0, 7.0, 24.0, 18.0) } +
+                    Celebration.collection.map { ($0.scene, 12.0, 9.0, 29.0, 21.0) }
+        for (revised, ms, ds, spacing, dockSpacing) in stock {
+            var old = revised
+            old.menu.size = ms
+            old.dock.size = ds
+            old.menu.spacing = spacing
+            old.dock.spacing = dockSpacing
+            if scene == old { scene = revised }
+            for i in looks.indices where looks[i].scene == old { looks[i].scene = revised }
+        }
+        bulbSizeRevision = 1
+        return true
+    }
 
     @discardableResult
     mutating func installCelebrationsIfNeeded() -> Bool {

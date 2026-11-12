@@ -39,8 +39,9 @@ final class Studio: ObservableObject {
             do {
                 var stored = try JSONDecoder().decode(Preferences.self, from: Data(contentsOf: url))
                 let upgraded = stored.installCelebrationsIfNeeded()
+                let resized = stored.upgradeStockBulbsIfNeeded()
                 prefs = stored
-                if upgraded { save() }
+                if upgraded || resized { save() }
             }
             catch { message = "Couldn’t read saved settings. \(error.localizedDescription)" }
         }

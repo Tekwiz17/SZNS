@@ -77,11 +77,22 @@ jobs:
             defaults write com.apple.dock orientation -string "$side"
             killall Dock
             sleep 3
-            "$RUNNER_TEMP/dock-check" "$pid" "$side"
+            if [ "$side" = bottom ]; then
+              "$RUNNER_TEMP/dock-check" "$pid" bottom "$RUNNER_TEMP/initial-width"
+              defaults write com.apple.dock tilesize -int 24
+              killall Dock
+              sleep 3
+              "$RUNNER_TEMP/dock-check" "$pid" bottom "$RUNNER_TEMP/initial-width"
+              defaults write com.apple.dock tilesize -int 48
+            else
+              "$RUNNER_TEMP/dock-check" "$pid" "$side"
+            fi
           done
           defaults write com.apple.dock autohide -bool true
           killall Dock
           sleep 3
+          "$RUNNER_TEMP/dock-check" "$pid" hidden
+          "$RUNNER_TEMP/dock-check" "$pid" reveal
           "$RUNNER_TEMP/dock-check" "$pid" hidden
       - uses: actions/upload-artifact@v4
         with:

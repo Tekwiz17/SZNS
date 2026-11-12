@@ -76,5 +76,32 @@ let right = CGRect(x: 1450, y: 120, width: 62, height: 600)
 check("Right Dock follows its inner edge", DisplayGeometry.dockStrip(right, screen: primary, depth: 24)?.1 == .right)
 check("Hidden Dock produces no strip", DisplayGeometry.dockStrip(dock.offsetBy(dx: 0, dy: -63), screen: primary, depth: 24) == nil)
 check("Dock is excluded from other displays", DisplayGeometry.dockStrip(left, screen: primary, depth: 24) == nil)
+let display = DockDisplay(frame: primary, usable: primary.insetBy(dx: 0, dy: 68))
+check("Reject full-screen Dock event window", display.dockBounds(primary, side: .bottom, useReservedEdge: true) == nil)
+let tiles = CGRect(x: 499, y: 8, width: 514, height: 48)
+check("Use real tile span and reserved lip", display.dockBounds(tiles, side: .bottom, useReservedEdge: true) ==
+      CGRect(x: 499, y: 0, width: 514, height: 68))
+check("Ignore floating Dock popup", display.dockBounds(tiles.offsetBy(dx: 0, dy: 90), side: .bottom, useReservedEdge: true) == nil)
+check("Reject auto-hide activation sliver", display.dockBounds(CGRect(x: 400, y: 0, width: 300, height: 2), side: .bottom, useReservedEdge: false) == nil)
+check("An oversized overlay stays on the Dock", DisplayGeometry.dockStrip(dock, screen: primary, depth: 240)?.0 == dock)
+check("Every starter scene has larger bulbs", original.looks.allSatisfy { $0.scene.menu.size >= 22 && $0.scene.dock.size >= 18 })
+var big = Lights()
+big.size = 64
+big.sag = 70
+let fit = big.fittingDock(depth: 36)
+check("Large bulb fits a shallow Dock without changing its stored size", fit.size < 36 && fit.sag < 1 && big.size == 64)
+var oldBulbs = original
+var oldWinter = Season.winter.scene
+oldWinter.menu.size = 9; oldWinter.dock.size = 7; oldWinter.menu.spacing = 24; oldWinter.dock.spacing = 18
+oldBulbs.scene = oldWinter
+var edited = oldWinter
+edited.dock.size = 14
+oldBulbs.looks = [Look(name: "Renamed stock", scene: oldWinter), Look(name: "Custom", scene: edited)]
+var bulbJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(oldBulbs)) as! [String: Any]
+bulbJSON.removeValue(forKey: "bulbSizeRevision")
+var migrated = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: bulbJSON))
+check("Upgrade exact stock preset sizes once", migrated.upgradeStockBulbsIfNeeded() && migrated.scene == Season.winter.scene &&
+      migrated.looks[0].scene == migrated.scene && migrated.looks[0].id == oldBulbs.looks[0].id && !migrated.upgradeStockBulbsIfNeeded())
+check("Preserve custom bulb sizes on upgrade", migrated.looks[1] == oldBulbs.looks[1])
 print("\(passed) checks passed")
 

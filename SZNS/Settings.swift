@@ -19,6 +19,7 @@ final class Navigation: ObservableObject {
     @Published var page = Page.general
     @Published var showingGuide = false
     @Published var trusted = Accessibility.granted
+    @Published var dockStatus = "Locating Dock…"
 }
 
 struct NumberRow: View {
@@ -116,10 +117,12 @@ struct LightSettings: View {
             Section {
                 Toggle("Enable \(layer.rawValue) lights", isOn: $light.enabled)
                 Picker("Placement", selection: $light.aboveApps) {
-                    Text("Above apps").tag(true); Text("Desktop only").tag(false)
+                    Text(layer == .dock ? "Whenever the Dock is visible" : "Above apps").tag(true)
+                    Text(layer == .dock ? "While using Finder" : "Desktop only").tag(false)
                 }
+                if layer == .dock { LabeledContent("Dock tracking", value: nav.dockStatus) }
                 if layer == .dock && !nav.trusted {
-                    Button("Allow Accessibility to locate the Dock…") { Accessibility.request(); Accessibility.openSettings() }
+                    Button("Allow precise Dock tracking…") { Accessibility.request(); Accessibility.openSettings() }
                 }
             }
             Section("Bulbs") {
@@ -131,7 +134,7 @@ struct LightSettings: View {
                         if let mask = studio.importBulb() { light.customMask = mask; light.bulb = .custom }
                     }.help("The SVG silhouette takes on the colors of your lights.")
                 }
-                NumberRow(label: "Size", value: $light.size, range: 3...28, unit: " pt")
+                NumberRow(label: "Size", value: $light.size, range: Lights.sizeRange, unit: " pt")
                 NumberRow(label: "Distance", value: $light.spacing, range: 8...90, unit: " pt")
                 NumberRow(label: "Density", value: $light.density, range: 0.05...1, step: 0.05, percent: true)
                 NumberRow(label: "Opacity", value: $light.opacity, range: 0.05...1, step: 0.05, percent: true)
@@ -243,7 +246,7 @@ struct SettingsView: View {
             if nav.page != .presets {
                 let focus: Layer? = nav.page == .menu ? .menu : nav.page == .dock ? .dock : nav.page == .desktop ? .desktop : nil
                 ScenePreview(scene: studio.prefs.scene, focus: focus)
-                    .frame(height: 110).padding(.horizontal, 20).padding(.top, 14)
+                    .frame(height: focus == .dock ? min(230, max(110, studio.prefs.scene.dock.depth + 24)) : focus == .menu ? min(240, max(110, studio.prefs.scene.menu.depth + 12)) : 110).padding(.horizontal, 20).padding(.top, 14)
             }
             switch nav.page {
             case .general: GeneralSettings(studio: studio, nav: nav)

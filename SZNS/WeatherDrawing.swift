@@ -231,18 +231,19 @@ struct ScenePreview: View {
                     LightDrawing.draw(in: strip, size: size, lights: scene.menu, time: t)
                 }
                 if focus == nil || focus == .dock {
-                    let dockWidth = min(w * 0.66, 300), x = (w - dockWidth) / 2, y = h - 35
-                    let dock = CGRect(x: x, y: y, width: dockWidth, height: 28)
+                    let dockHeight = focus == .dock ? min(h - 16, max(32, scene.dock.depth)) : 32
+                    let dockWidth = min(w * 0.76, 410), x = (w - dockWidth) / 2, y = h - dockHeight - 5
+                    let dock = CGRect(x: x, y: y, width: dockWidth, height: dockHeight)
                     ctx.fill(Path(roundedRect: dock, cornerRadius: 8), with: .color(.white.opacity(0.23)))
                     for i in 0..<7 {
                         let dx = x + (Double(i) + 0.5) * dockWidth / 7
                         let tint = [0x7fbaca, 0xffd0ac, 0xa0c4aa, 0xcab9cf][i % 4]
-                        ctx.fill(Path(roundedRect: .init(x: dx - 7,y: y + 7,width: 14,height: 14), cornerRadius: 4),
+                        ctx.fill(Path(roundedRect: .init(x: dx - 7,y: y + dockHeight / 2 - 7,width: 14,height: 14), cornerRadius: 4),
                                  with: .color(Color(rgb: tint)))
                     }
                     var string = ctx
                     string.translateBy(x: x, y: y)
-                    LightDrawing.draw(in: string, size: .init(width: dockWidth, height: 28), lights: scene.dock, time: t)
+                    LightDrawing.draw(in: string, size: .init(width: dockWidth, height: dockHeight), lights: scene.dock, time: t)
                 }
             }
         }

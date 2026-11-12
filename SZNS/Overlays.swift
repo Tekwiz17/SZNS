@@ -33,6 +33,8 @@ private struct SurfaceView: View {
     }
 }
 private final class DecorationPanel: NSPanel {
+    // NSWindow normally pulls a panel back into the work area, away from the Dock.
+    override func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect { frameRect }
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 }
@@ -47,6 +49,7 @@ final class Overlays {
     private var timer: Timer?
     private var observer: AnyCancellable?
     private let locator = DockLocator()
+    private(set) var dockStatus = "Locating Dock…"
     private var asleep = false
     private let studio = Studio.shared
     private var nextBatterySample = Date.distantPast
@@ -74,7 +77,7 @@ final class Overlays {
 
     func start() {
         observer = studio.$prefs.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.refresh() }
-        let clock = Timer(timeInterval: 0.32, repeats: true) { [weak self] _ in
+        let clock = Timer(timeInterval: 0.20, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
         }
         clock.tolerance = 0.04
@@ -90,20 +93,33 @@ final class Overlays {
         NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: NSApplication.didChangeScreenParametersNotification, object: nil)
         refresh()
     }
-    @objc private func sleep() { asleep = true; clear() }
-    @objc private func wake() { asleep = false; refresh() }
+    @objc private func sleep() { asleep = true; timer?.fireDate = .distantFuture; clear() }
+    @objc private func wake() { asleep = false; timer?.fireDate = Date(); refresh() }
     private func clear() { entries.values.forEach { $0.panel.orderOut(nil) }; entries.removeAll() }
 
     @objc func refresh() {
         let p = studio.prefs, screens = NSScreen.screens
         guard !asleep, let primary = screens.first, p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
+            if !p.scene.dock.enabled { dockStatus = "Off" }
             clear(); return
         }
         let low = shouldSavePower(p.power)
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        let needsWindows = p.scene.menu.enabled || (p.scene.dock.enabled && Accessibility.granted)
+        let needsWindows = p.scene.menu.enabled || p.scene.dock.enabled
         let windows = needsWindows ? (CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []) : []
-        let dock = p.scene.dock.enabled ? locator.frame(windows: windows, primaryHeight: primary.frame.height) : nil
+        let finderActive = NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.apple.finder"
+        let showDock = p.scene.dock.enabled && (p.scene.dock.aboveApps || finderActive)
+        let displays = screens.map { DockDisplay(frame: $0.frame, usable: $0.visibleFrame) }
+        let dock = showDock ? locator.frame(windows: windows, displays: displays, primaryHeight: primary.frame.maxY,
+                                            mouse: NSEvent.mouseLocation) : nil
+        if !p.scene.dock.enabled { dockStatus = "Off" }
+        else if !showDock { dockStatus = "Waiting for Finder" }
+        else if let dock {
+            let name = screens.first { $0.frame == dock.display }?.localizedName ?? "Display"
+            dockStatus = "\(dock.side.rawValue.capitalized) · \(name)"
+        } else {
+            dockStatus = Accessibility.granted ? "Waiting for a visible Dock" : "Grant Accessibility to locate this Dock"
+        }
         var wanted = [String: Surface]()
         for screen in screens {
             let frame = screen.frame
@@ -116,10 +132,12 @@ final class Overlays {
                 let strip = CGRect(x: frame.minX, y: barBottom - h, width: frame.width, height: h)
                 wanted[id + ".menu"] = Surface(layer: .menu, frame: strip, lights: p.scene.menu, lowPower: low, reducedMotion: reduced)
             }
-            if let dock, frame.contains(CGPoint(x: dock.midX, y: dock.midY)) || screens.count == 1,
-               let (strip, side) = DisplayGeometry.dockStrip(dock, screen: frame, depth: p.scene.dock.depth) {
+            if let dock, frame == dock.display,
+               let (strip, side) = DisplayGeometry.dockStrip(dock.bounds, screen: frame, depth: p.scene.dock.depth) {
                 let edge: EdgeMount = side == .left ? .left : side == .right ? .right : .top
-                wanted[id + ".dock"] = Surface(layer: .dock, frame: strip, edge: edge, lights: p.scene.dock, lowPower: low, reducedMotion: reduced)
+                let depth = side == .bottom ? strip.height : strip.width
+                let fitted = p.scene.dock.fittingDock(depth: depth)
+                wanted[id + ".dock"] = Surface(layer: .dock, frame: strip, edge: edge, lights: fitted, lowPower: low, reducedMotion: reduced)
             }
         }
         for key in Array(entries.keys) where wanted[key] == nil { entries.removeValue(forKey: key)?.panel.orderOut(nil) }
@@ -139,7 +157,7 @@ final class Overlays {
     }
     private func present(_ key: String, _ spec: Surface) {
         if entries[key]?.spec == spec { return }
-        let behindApps = spec.layer == .desktop || spec.lights?.aboveApps == false
+        let behindApps = spec.layer == .desktop || (spec.layer == .menu && spec.lights?.aboveApps == false)
         let level = behindApps ? CGWindowLevelForKey(.desktopWindow) + (spec.layer == .desktop ? 1 : 2)
                                : CGWindowLevelForKey(spec.layer == .dock ? .dockWindow : .statusWindow) + 1
         if var entry = entries[key] {

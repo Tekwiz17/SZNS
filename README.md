@@ -57,7 +57,11 @@ Cherry Orchard, Firefly Hour, Amber Grove and First Frost round out the collecti
 
 Each strand can use a color palette, a white-light temperature or a custom bulb silhouette. Choose **Import SVG** for a standalone SVG. SZNS stores a small mask with the scene so you can move the original file afterward. **Year digits** and **Year badge** use the current calendar year.
 
-The menu bar icon provides independent switches for all three layers. Clicking the Dock icon opens Settings. If you hide both icons, launch SZNS again with Spotlight or Finder to reopen Settings. Changing a setting updates the current scene immediately. To replace a saved scene, use **Presets → … → Update from current settings**.
+Bulb size runs from 3 to 64 points. The starter scenes use 18–20 pt bulbs on the Dock and 22–24 pt bulbs at the menu bar. SZNS fits the strand inside the visible Dock when a small Dock leaves less room. Increase the system Dock size to give larger bulbs more space.
+
+In **Settings → Dock**, **Dock tracking** shows the edge and display SZNS found. If tracking asks for Accessibility, enable SZNS in System Settings and reveal the Dock. Choose **Whenever the Dock is visible** for normal use, or **While using Finder** to show the lights only while Finder is active.
+
+The menu bar icon provides independent switches for all three layers and an **Apply Scene** submenu. Clicking the Dock icon opens Settings. If you hide both icons, launch SZNS again with Spotlight or Finder to reopen Settings. Changing a setting updates the current scene immediately. To replace a saved scene, use **Presets → … → Update from current settings**.
 
 ## Shortcuts and Siri
 

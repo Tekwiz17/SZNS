@@ -39,33 +39,70 @@ final class DockLocator {
         }
         return nil
     }
-    func frame(windows: [[String: Any]], primaryHeight: CGFloat) -> CGRect? {
-        guard Accessibility.granted, let process = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
-            list = nil; return nil
+    struct Match {
+        let bounds: CGRect
+        let display: CGRect
+        let side: DockSide
+    }
+
+    func frame(windows: [[String: Any]], displays: [DockDisplay], primaryHeight: CGFloat, mouse: CGPoint) -> Match? {
+        guard let process = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else {
+            list = nil
+            return nil
         }
         if pid != process.processIdentifier { list = nil; pid = process.processIdentifier }
+        let defaults = UserDefaults.standard.persistentDomain(forName: "com.apple.dock")
+        let side = DockSide(rawValue: defaults?["orientation"] as? String ?? "") ?? .bottom
+        let autoHides = defaults?["autohide"] as? Bool ?? false
+
+        func match(_ quartz: CGRect, fromAX: Bool) -> Match? {
+            let rect = DisplayGeometry.cocoa(quartz, primaryHeight: primaryHeight)
+            guard let display = DisplayGeometry.dockDisplay(for: rect, in: displays),
+                  let bounds = display.dockBounds(rect, side: side, useReservedEdge: !autoHides) else { return nil }
+            // Some Dock versions keep reporting their resting AX coordinates after hiding.
+            // With no reserved inset or visible shelf window, the pointer must be over the shelf.
+            if fromAX && display.reservedDepth(side) < 5 && !bounds.insetBy(dx: -2, dy: -2).contains(mouse) {
+                return nil
+            }
+            return Match(bounds: bounds, display: display.frame, side: side)
+        }
+
+        // Dock.app also owns a screen-sized hit-testing surface at this exact level.
+        // Use only visible shelf-shaped windows pinned to the configured edge.
+        let dockLevel = Int(CGWindowLevelForKey(.dockWindow))
+        let surfaces: [Match] = windows.compactMap { info in
+            guard info[kCGWindowOwnerPID as String] as? Int32 == pid,
+                  info[kCGWindowLayer as String] as? Int == dockLevel,
+                  (info[kCGWindowAlpha as String] as? Double ?? 1) > 0,
+                  let values = info[kCGWindowBounds as String] as? NSDictionary,
+                  let rect = CGRect(dictionaryRepresentation: values as CFDictionary) else { return nil }
+            return match(rect, fromAX: false)
+        }
+        if let visible = surfaces.max(by: { $0.bounds.width * $0.bounds.height < $1.bounds.width * $1.bounds.height }) {
+            return visible
+        }
+
+        guard Accessibility.granted else { list = nil; return nil }
         if list == nil {
             let app = AXUIElementCreateApplication(pid)
             AXUIElementSetMessagingTimeout(app, 0.12)
             list = dockList(in: app)
         }
         guard let list else { return nil }
-        guard let bounds = rect(list) else { self.list = nil; return nil }
-        // Match the actual Dock surface when it is animating, magnified, or auto-hidden.
-        let dockLevel = Int(CGWindowLevelForKey(.dockWindow))
-        let surfaces: [CGRect] = windows.compactMap { info in
-            guard info[kCGWindowOwnerPID as String] as? Int32 == pid,
-                  info[kCGWindowLayer as String] as? Int == dockLevel,
-                  let values = info[kCGWindowBounds as String] as? NSDictionary,
-                  let r = CGRect(dictionaryRepresentation: values as CFDictionary),
-                  min(r.width, r.height) > 1, max(r.width, r.height) >= 24 else { return nil }
-            return r
+        if let bounds = rect(list), let result = match(bounds, fromAX: true) { return result }
+
+        // The list container can be unpositioned. The tiles still carry individual AX frames.
+        guard let children = read(list, kAXChildrenAttribute as CFString) as? [AXUIElement] else {
+            self.list = nil
+            return nil
         }
-        let visibleSurface = surfaces.filter { $0.intersects(bounds.insetBy(dx: -16, dy: -16)) }
-            .min { abs($0.midX - bounds.midX) + abs($0.midY - bounds.midY) <
-                   abs($1.midX - bounds.midX) + abs($1.midY - bounds.midY) }
-        let autohide = UserDefaults.standard.persistentDomain(forName: "com.apple.dock")?["autohide"] as? Bool ?? false
-        if autohide && visibleSurface == nil { return nil }
-        return DisplayGeometry.cocoa(visibleSurface ?? bounds, primaryHeight: primaryHeight)
+        let items = children.compactMap { element -> CGRect? in
+            guard let bounds = rect(element), bounds.width <= 256, bounds.height <= 256 else { return nil }
+            return bounds
+        }
+        guard !items.isEmpty else { self.list = nil; return nil }
+        let span = items.reduce(CGRect.null) { $0.union($1) }
+        let padded = side == .bottom ? span.insetBy(dx: -5, dy: 0) : span.insetBy(dx: 0, dy: -5)
+        return match(padded, fromAX: true)
     }
 }

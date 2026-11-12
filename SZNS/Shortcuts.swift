@@ -122,7 +122,7 @@ enum StrandSetting: String, AppEnum {
     ]
     var limits: ClosedRange<Double> {
         switch self {
-        case .size: return 3...28
+        case .size: return Lights.sizeRange
         case .spacing: return 8...90
         case .density, .opacity: return 5...100
         case .temperature: return 1800...10000
