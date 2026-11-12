@@ -93,6 +93,22 @@ enum LightDrawing {
                 bulb.fill(shape, with: .linearGradient(Gradient(colors: [color, color, color.opacity(0.62)]),
                                                         startPoint: CGPoint(x: -0.35, y: -0.4),
                                                         endPoint: CGPoint(x: 0.4, y: 0.5)))
+                if lights.bulb == .candyCane || lights.bulb == .easterEgg {
+                    var paint = bulb
+                    paint.clip(to: shape)
+                    var stripes = Path()
+                    for offset in [-0.37, -0.05, 0.27] {
+                        stripes.move(to: CGPoint(x: -0.55, y: offset))
+                        if lights.bulb == .easterEgg {
+                            for j in 1...8 {
+                                let x = -0.55 + Double(j) * 0.14
+                                stripes.addLine(to: CGPoint(x: x, y: offset + (j.isMultiple(of: 2) ? 0 : 0.08)))
+                            }
+                        } else { stripes.addLine(to: CGPoint(x: 0.55, y: offset + 0.45)) }
+                    }
+                    paint.stroke(stripes, with: .color(lights.bulb == .candyCane ? Color(rgb: 0xb61a39) : .white.opacity(0.85)),
+                                 lineWidth: lights.bulb == .candyCane ? 0.1 : 0.07)
+                }
                 if [.oval, .globe, .diode, .egg, .icicle].contains(lights.bulb) {
                     bulb.fill(Path(ellipseIn: CGRect(x: -0.16, y: -0.21, width: 0.09, height: 0.22)),
                               with: .color(.white.opacity(0.68)))
@@ -136,7 +152,22 @@ enum LightDrawing {
         switch kind {
         case .globe: return oval(0.95, 0.95)
         case .oval, .custom: return oval(0.69, 1)
-        case .egg:
+        case .graduationCap:
+            var cap = polygon([(-0.6,-0.18),(0,-0.48),(0.6,-0.18),(0,0.12)])
+            cap.addPath(polygon([(-0.34,0.02),(0,0.19),(0.34,0.02),(0.32,0.22),(0,0.37),(-0.32,0.22)]))
+            var tassel = Path()
+            tassel.move(to: .init(x: 0.51, y: -0.16))
+            tassel.addLine(to: .init(x: 0.51, y: 0.3))
+            cap.addPath(tassel.strokedPath(.init(lineWidth: 0.055, lineCap: .round)))
+            cap.addEllipse(in: .init(x: 0.45, y: 0.25, width: 0.12, height: 0.17))
+            return cap
+        case .candyCane:
+            var cane = Path()
+            cane.move(to: .init(x: -0.18, y: 0.46))
+            cane.addLine(to: .init(x: -0.18, y: -0.24))
+            cane.addCurve(to: .init(x: 0.28, y: -0.20), control1: .init(x: -0.18, y: -0.58), control2: .init(x: 0.30, y: -0.59))
+            return cane.strokedPath(.init(lineWidth: 0.20, lineCap: .round))
+        case .egg, .easterEgg:
             return Path { p in
                 p.move(to: .init(x: 0, y: -0.55))
                 p.addCurve(to: .init(x: 0, y: 0.5), control1: .init(x: 0.27, y: -0.57), control2: .init(x: 0.75, y: 0.49))

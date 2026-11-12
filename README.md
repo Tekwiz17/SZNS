@@ -29,10 +29,31 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 | Settings | What you can change |
 | --- | --- |
 | General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving, wallpaper previews and Accessibility access. Check for new releases or replay the guide. |
-| Presets | Apply Cherry Orchard, Firefly Hour, Amber Grove or First Frost. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
+| Presets | Apply one of 16 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
 | Menu Bar | Choose placement above apps or on the desktop. Edit bulb design, spacing, size, density, pattern, speed, variation, opacity and pointer behavior. Adjust the wire color, thickness, span and sag. |
 | Dock | Independently configure the same settings for the Dock. Its strand follows the Dock’s visible bounds and orientation. |
-| Desktop | Choose snowfall, autumn leaves, petals, fireflies, rain or fireworks. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+| Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti or a repeating midnight ball drop. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+
+### Celebrations
+
+Every scene below also ships as a named color palette.
+
+| Scene | Menu bar and Dock bulbs | Desktop |
+| --- | --- | --- |
+| Candy Cane | Striped canes and peppermint diodes | Soft snow |
+| Christmas Bulbs | Classic multicolor bulbs on both strands | Warm-white snow |
+| Christmas Red & Green | Pine trees and classic bulbs | Snow |
+| 4th of July | Red, white and blue stars and globes | Fireworks |
+| Fall Leaves | Maple leaves and pumpkins | Drifting leaves |
+| Easter Pastel | Painted eggs and blossoms | Pastel petals |
+| Halloween Black & Orange | Pumpkins and bats | Flying bats |
+| Halloween Witch | Green and purple moons and ghosts | Floating ghosts |
+| Midnight Countdown | Stars and year digits | A mirror ball drops and releases sparks |
+| Tassel Toss | Graduation caps and stars | Tumbling confetti |
+| Love Letters | Hearts and blossoms | Rose petals |
+| Summer Solstice | Suns and shells | Fireflies |
+
+Cherry Orchard, Firefly Hour, Amber Grove and First Frost round out the collection. On upgrade, SZNS adds the new scenes and palettes once and preserves your current scene and saved presets.
 
 Each strand can use a color palette, a white-light temperature or a custom bulb silhouette. Choose **Import SVG** for a standalone SVG. SZNS stores a small mask with the scene so you can move the original file afterward. **Year digits** and **Year badge** use the current calendar year.
 

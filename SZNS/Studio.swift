@@ -36,7 +36,12 @@ final class Studio: ObservableObject {
             .appendingPathComponent("SZNS/Preferences.json")
         prefs = Preferences()
         if FileManager.default.fileExists(atPath: url.path) {
-            do { prefs = try JSONDecoder().decode(Preferences.self, from: Data(contentsOf: url)) }
+            do {
+                var stored = try JSONDecoder().decode(Preferences.self, from: Data(contentsOf: url))
+                let upgraded = stored.installCelebrationsIfNeeded()
+                prefs = stored
+                if upgraded { save() }
+            }
             catch { message = "Couldn’t read saved settings. \(error.localizedDescription)" }
         }
     }

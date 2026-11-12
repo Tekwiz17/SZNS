@@ -32,7 +32,13 @@ enum WeatherDrawing {
             }
             return
         }
-        for i in 0..<count {
+        if weather.effect == .ballDrop {
+            drawBallDrop(in: ctx, size: size, weather: weather, time: t, colors: colors)
+            return
+        }
+        let flying = weather.effect == .bats || weather.effect == .ghosts
+        let number = flying ? max(1, count / 5) : count
+        for i in 0..<number {
             let seed = variation(i, 4)
             let depth = 0.45 + 0.78 * variation(i, 5)
             let speed = weather.effect == .rain ? 145.0 : weather.effect == .fireflies ? 7 : 28
@@ -40,6 +46,14 @@ enum WeatherDrawing {
             func wrap(_ value: Double, _ period: Double) -> Double { value - floor(value / period) * period }
             var x = wrap(seed * w + weather.wind * t * 47 * depth + sin(t * 0.8 + seed * 100) * sway, w + 20) - 10
             var y = wrap(variation(i, 8) * h + t * speed * depth, h + 20) - 10
+            if weather.effect == .bats {
+                let direction = i.isMultiple(of: 2) ? 1.0 : -1.0
+                x = wrap(seed * w + t * (direction * 52 * depth + weather.wind * 30), w + 48) - 24
+                y = variation(i, 8) * h + sin(t * 1.5 + seed * 18) * 10 * depth + sin(t * 0.37 + seed * 51) * 17
+            } else if weather.effect == .ghosts {
+                y = wrap(variation(i, 8) * h - t * 19 * depth, h + 40) - 20
+                x = wrap(seed * w + weather.wind * t * 20 + sin(t * 0.74 + seed * 30) * 16, w + 32) - 16
+            }
             if let pointer, weather.repel > 0 {
                 let dx = x - pointer.x, dy = y - pointer.y
                 let distance = hypot(dx, dy)
@@ -74,7 +88,74 @@ enum WeatherDrawing {
                 var drop = Path()
                 drop.move(to: .zero); drop.addLine(to: .init(x: -weather.wind * radius, y: -radius * 2.8))
                 particle.stroke(drop, with: .color(color), style: .init(lineWidth: max(0.7, radius * 0.25), lineCap: .round))
-            case .fireworks: break
+            case .confetti:
+                particle.rotate(by: .radians(t * (1.2 + seed) + seed * 14))
+                let width = radius * (0.2 + 0.8 * abs(cos(t * 2 + seed * 11)))
+                particle.fill(Path(roundedRect: CGRect(x: -width / 2, y: -radius, width: width, height: radius * 2),
+                                   cornerRadius: radius * 0.15), with: .color(color))
+            case .bats:
+                let flap = 0.48 + 0.52 * abs(sin(t * 5.4 + seed * 34))
+                particle.rotate(by: .degrees(sin(t * 1.5 + seed * 18) * 12))
+                particle.scaleBy(x: radius * 3, y: radius * 2.8 * flap)
+                let bat = LightDrawing.silhouette(.bat)
+                particle.fill(bat, with: .color(color))
+                particle.stroke(bat, with: .color(.white.opacity(0.4)), lineWidth: 0.045)
+            case .ghosts:
+                particle.rotate(by: .degrees(sin(t + seed * 15) * 10))
+                particle.scaleBy(x: radius * 2.6, y: radius * 2.8)
+                particle.fill(LightDrawing.silhouette(.ghost), with: .color(color))
+                for eye in [-0.17, 0.08] {
+                    particle.fill(Path(ellipseIn: CGRect(x: eye, y: -0.14, width: 0.095, height: 0.16)),
+                                  with: .color(Color(rgb: 0x302842)))
+                }
+            case .fireworks, .ballDrop: break
+            }
+        }
+    }
+
+    // A twelve-second celebration: the faceted ball descends, lands, then scatters sparks.
+    private static func drawBallDrop(in context: GraphicsContext, size: CGSize, weather: Weather,
+                                     time: Double, colors: [Int]) {
+        let phase = time.truncatingRemainder(dividingBy: 12) / 12
+        let descent = min(1, phase / 0.72)
+        let eased = descent * descent * (3 - 2 * descent)
+        let r = min(size.height * 0.12, 7 + weather.size * 2.3)
+        let top = max(r + 3, size.height * 0.12), bottom = size.height * 0.72
+        let x = size.width * 0.5, y = top + eased * (bottom - top)
+        var ctx = context
+        ctx.opacity = weather.opacity * min(1, (1 - phase) / 0.08)
+        var pole = Path()
+        pole.move(to: CGPoint(x: x, y: top)); pole.addLine(to: CGPoint(x: x, y: bottom + r))
+        ctx.stroke(pole, with: .color(.white.opacity(0.35)), lineWidth: max(1, r * 0.09))
+        let orb = Path(ellipseIn: CGRect(x: x-r, y: y-r, width: 2*r, height: 2*r))
+        let halo = Path(ellipseIn: CGRect(x: x-2*r, y: y-2*r, width: 4*r, height: 4*r))
+        ctx.fill(halo, with: .radialGradient(Gradient(colors: [Color(rgb: colors[0]).opacity(0.65), .clear]),
+                                             center: CGPoint(x: x, y: y), startRadius: 0, endRadius: 2*r))
+        var facets = ctx
+        facets.clip(to: orb)
+        facets.fill(orb, with: .color(Color(rgb: 0x484451)))
+        let tile = r * 0.36
+        for row in -3...3 {
+            for col in -4...4 {
+                let index = (row + 3) * 9 + col + 4
+                let gleam = 0.58 + 0.42 * sin(time * 2 + Double(index) * 2.4)
+                let origin = x + (Double(col) + sin(time + Double(row) * 0.24) * 0.45) * tile
+                let facet = CGRect(x: origin, y: y + Double(row) * tile, width: tile * 0.91, height: tile * 0.9)
+                facets.fill(Path(facet), with: .color(Color(rgb: colors[index % colors.count]).opacity(gleam)))
+            }
+        }
+        ctx.stroke(orb, with: .color(.white.opacity(0.75)), lineWidth: max(0.7, r * 0.06))
+        if phase >= 0.72 {
+            let age = (phase - 0.72) / 0.28
+            let reach = min(size.width * 0.36, size.height * 0.31)
+            for i in 0..<Int(10 + weather.density * 70) {
+                let angle = variation(i, 11) * .pi * 2
+                let distance = (0.4 + variation(i, 9)) * reach * age
+                let dx = cos(angle) * distance + weather.wind * age * reach * 0.32
+                let dy = sin(angle) * distance + age * age * reach * 0.5
+                let dot = max(1, r * 0.17)
+                ctx.fill(Path(ellipseIn: CGRect(x: x + dx, y: bottom + dy, width: dot, height: dot)),
+                         with: .color(Color(rgb: colors[i % colors.count]).opacity(1 - age)))
             }
         }
     }

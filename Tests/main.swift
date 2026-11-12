@@ -12,7 +12,42 @@ func check(_ name: String, _ assertion: @autoclosure () throws -> Bool) rethrows
 let original = Preferences()
 let data = try JSONEncoder().encode(original)
 try check("Every preference round-trips", try JSONDecoder().decode(Preferences.self, from: data) == original)
-check("Four distinct starter scenes", Set(original.looks.map { $0.scene.desktop.effect }).count == 4)
+check("Original four seasonal scenes remain available", Season.allCases.allSatisfy { season in
+    original.looks.contains { $0.name == season.rawValue && $0.scene == season.scene }
+})
+check("Every celebration has its matching full scene and palette", Celebration.collection.allSatisfy { item in
+    original.looks.contains { $0.name == item.name && $0.scene == item.scene } &&
+    original.palettes.contains { $0.name == item.name && $0.colors == item.colors }
+})
+check("The full catalog has unique names", original.looks.count == 16 && Set(original.looks.map(\.name)).count == 16)
+let partyEffects: [String: Effect] = ["4th of July": .fireworks, "Midnight Countdown": .ballDrop,
+                                      "Halloween Black & Orange": .bats, "Halloween Witch": .ghosts, "Tassel Toss": .confetti]
+check("Celebrations use their corresponding desktop effects", partyEffects.allSatisfy { name, effect in
+    original.looks.first(where: { $0.name == name })?.scene.desktop.effect == effect
+})
+
+// Reproduce the exact preference-file shape shipped before the collection was added.
+var legacy = original
+legacy.looks = [Look(name: "Candy Cane", scene: Season.summer.scene)]
+legacy.palettes = [Palette(name: "Candy Cane", colors: [0x010203])]
+legacy.scene = Season.autumn.scene
+legacy.visibility = .neither
+legacy.welcomed = true
+var oldJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(legacy)) as! [String: Any]
+oldJSON.removeValue(forKey: "celebrationRevision")
+let oldData = try JSONSerialization.data(withJSONObject: oldJSON)
+var upgraded = try JSONDecoder().decode(Preferences.self, from: oldData)
+check("Installed collection on a pre-update preference file", upgraded.installCelebrationsIfNeeded())
+check("Upgrade preserves user presets, IDs, active scene and preferences",
+      upgraded.looks.first == legacy.looks.first && upgraded.palettes.first == legacy.palettes.first &&
+      upgraded.scene == legacy.scene && upgraded.visibility == .neither && upgraded.welcomed)
+check("Upgrade preserves intentional deletions of original presets", !upgraded.looks.contains { $0.name == "First Frost" })
+check("Same-name user entries remain independently selectable",
+      upgraded.looks.contains { $0.name == "Candy Cane (SZNS)" } && upgraded.palettes.contains { $0.name == "Candy Cane (SZNS)" })
+upgraded.looks.removeLast()
+upgraded.palettes.removeLast()
+var reopened = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(upgraded))
+check("Reopening does not duplicate or resurrect deleted presets", !reopened.installCelebrationsIfNeeded() && reopened == upgraded)
 check("All starter palettes are valid", original.palettes.allSatisfy { !$0.colors.isEmpty && $0.colors.allSatisfy { (0...0xffffff).contains($0) } })
 check("Four visibility modes", Visibility.allCases.map { [$0.showsDock, $0.showsMenu] } == [[true,true],[true,false],[false,true],[false,false]])
 var custom = original.scene

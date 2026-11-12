@@ -124,7 +124,7 @@ struct LightSettings: View {
             }
             Section("Bulbs") {
                 Picker("Design", selection: $light.bulb) {
-                    ForEach(Bulb.allCases.filter { $0 != .custom || light.customMask != nil }, id: \.self) { b in Text(b.rawValue).tag(b) }
+                    ForEach(Bulb.allCases.filter { $0 != .custom || light.customMask != nil }, id: \.self) { b in Text(b.displayName).tag(b) }
                 }
                 LabeledContent("Custom design") {
                     Button("Import SVG…") {
@@ -181,7 +181,7 @@ struct DesktopSettings: View {
                 NumberRow(label: "Speed", value: $studio.prefs.scene.desktop.speed, range: 0.1...3, unit: "×", step: 0.1)
                 NumberRow(label: "Opacity", value: $studio.prefs.scene.desktop.opacity, range: 0.05...1, step: 0.05, percent: true)
                 NumberRow(label: "Wind (left to right)", value: $studio.prefs.scene.desktop.wind, range: -1...1, step: 0.05, percent: true)
-                if studio.prefs.scene.desktop.effect != .fireworks {
+                if ![Effect.fireworks, .ballDrop].contains(studio.prefs.scene.desktop.effect) {
                     NumberRow(label: "Pointer repulsion", value: $studio.prefs.scene.desktop.repel, range: 0...1, step: 0.05, percent: true)
                 }
             }

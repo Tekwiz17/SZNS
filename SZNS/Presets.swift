@@ -33,7 +33,7 @@ struct PresetSettings: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(look.name)
-                            Text("\(look.scene.menu.bulb.rawValue) · \(look.scene.desktop.effect.rawValue)")
+                            Text("\(look.scene.menu.bulb.displayName) · \(look.scene.desktop.effect.rawValue)")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
