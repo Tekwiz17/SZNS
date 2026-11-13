@@ -70,7 +70,7 @@ enum WeatherDrawing {
     static func draw(in ctx: GraphicsContext, size: CGSize, weather: Weather, time: Double,
                      pointer: CGPoint? = nil, preview: Bool = false, snowAge: Double? = nil) {
         guard weather.hasVisibleEffect, size.width > 0, size.height > 0 else { return }
-        let w = size.width, h = size.height
+        let w = Double(size.width), h = Double(size.height)
         let colors = weather.colors.isEmpty ? [0xffffff] : weather.colors
         let count = max(1, Int(min(700, w * h / (preview ? 800 : 4700) * weather.density)))
         let t = (weather.accumulatesSnow ? max(0, snowAge ?? time) : time) * weather.speed
