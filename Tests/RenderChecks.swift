@@ -46,7 +46,7 @@ enum RenderChecks {
         _ = NSApplication.shared
         try checkPreferenceRecovery()
         var firstFrames = Set<Data>()
-        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide] {
+        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns] {
             var weather = Weather()
             weather.effect = effect
             weather.size = 8
@@ -78,7 +78,7 @@ enum RenderChecks {
         }
         let cable = strand(.oval, density: 0)
         var bulbs = Set<Data>()
-        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval, .prism, .saturn, .jelly] {
+        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval, .prism, .saturn, .jelly, .koi, .skyLantern] {
             let image = strand(design)
             precondition(image != cable && bulbs.insert(image).inserted, "Missing or duplicate \(design.rawValue) design")
             print("PASS rendered distinct \(design.rawValue) strand")

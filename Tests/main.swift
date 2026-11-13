@@ -15,11 +15,11 @@ try check("Every preference round-trips", try JSONDecoder().decode(Preferences.s
 check("Original four seasonal scenes remain available", Season.allCases.allSatisfy { season in
     original.looks.contains { $0.name == season.rawValue && $0.scene == season.scene }
 })
-check("Every celebration has its matching full scene and palette", (Celebration.collection + Celebration.nightScenes).allSatisfy { item in
+check("Every celebration has its matching full scene and palette", (Celebration.collection + Celebration.nightScenes + Celebration.festivalScenes).allSatisfy { item in
     original.looks.contains { $0.name == item.name && $0.scene == item.scene } &&
     original.palettes.contains { $0.name == item.name && $0.colors == item.colors }
 })
-check("The full catalog has unique names", original.looks.count == 19 && Set(original.looks.map(\.name)).count == 19)
+check("The full catalog has unique names", original.looks.count == 21 && Set(original.looks.map(\.name)).count == 21)
 let reef = original.looks.first { $0.name == "Moonlit Reef" }!
 check("Search by words across name, effect and bulbs", reef.matches("REEF jellyfish shell") && !reef.matches("reef prism"))
 var versionOne = original
@@ -28,11 +28,40 @@ versionOne.palettes = []
 var v1JSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(versionOne)) as! [String: Any]
 v1JSON["celebrationRevision"] = 1
 var nextVersion = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
-check("1.1 upgrade adds exactly three scenes and palettes", nextVersion.installCelebrationsIfNeeded() &&
-      nextVersion.looks.count == 4 && nextVersion.palettes.count == 3)
+check("1.1 upgrade adds night and festival collections", nextVersion.installCelebrationsIfNeeded() &&
+      nextVersion.looks.count == 6 && nextVersion.palettes.count == 5)
 check("Existing active scene, favorite and IDs survive", nextVersion.scene == versionOne.scene && nextVersion.looks.first == versionOne.looks.first)
 nextVersion.looks.removeLast()
-check("Deleted night scenes stay deleted", !nextVersion.installCelebrationsIfNeeded() && nextVersion.looks.count == 3)
+check("Deleted night scenes stay deleted", !nextVersion.installCelebrationsIfNeeded() && nextVersion.looks.count == 5)
+v1JSON["celebrationRevision"] = 2
+var v12 = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
+check("1.2 upgrade installs only the two festival scenes", v12.installCelebrationsIfNeeded() && v12.looks.count == 3 && v12.palettes.count == 2)
+var local = Calendar(identifier: .gregorian)
+local.timeZone = TimeZone(identifier: "America/New_York")!
+func at(_ hour: Int, _ minute: Int) -> Date {
+    local.date(from: DateComponents(year: 2026, month: 11, day: 13, hour: hour, minute: minute))!
+}
+var downtime = original
+downtime.quietHours = QuietHours(enabled: true, startMinute: 22 * 60, endMinute: 7 * 60)
+check("Quiet Hours spans midnight with exact boundaries",
+      downtime.decorationState(at: at(21,59), calendar: local) == .showing &&
+      downtime.decorationState(at: at(22,0), calendar: local) == .quietHours &&
+      downtime.decorationState(at: at(6,59), calendar: local) == .quietHours &&
+      downtime.decorationState(at: at(7,0), calendar: local) == .showing)
+downtime.pausedUntil = at(23,30)
+check("Ending a timed pause respects Quiet Hours", downtime.decorationState(at: at(23,0), calendar: local) == .timed(at(23,30)) &&
+      downtime.decorationState(at: at(23,30), calendar: local) == .quietHours)
+downtime.quietHours = QuietHours(enabled: true, startMinute: 9*60, endMinute: 17*60)
+downtime.pausedUntil = nil
+check("Daytime pause uses local hours", downtime.decorationState(at: at(12,0), calendar: local) == .quietHours &&
+      downtime.decorationState(at: at(18,0), calendar: local) == .showing)
+downtime.quietHours?.endMinute = 9*60
+check("Equal times leave schedule inactive", downtime.decorationState(at: at(9,0), calendar: local) == .showing)
+downtime.pausedUntil = at(15,0)
+let resumed = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(downtime))
+check("Timed pause survives relaunch and expires without altering scene", resumed.scene == original.scene &&
+      resumed.decorationState(at: at(14,0), calendar: local) == .timed(at(15,0)) &&
+      resumed.decorationState(at: at(15,0), calendar: local) == .showing)
 let partyEffects: [String: Effect] = ["4th of July": .fireworks, "Midnight Countdown": .ballDrop,
                                       "Halloween Black & Orange": .bats, "Halloween Witch": .ghosts, "Tassel Toss": .confetti]
 check("Celebrations use their corresponding desktop effects", partyEffects.allSatisfy { name, effect in

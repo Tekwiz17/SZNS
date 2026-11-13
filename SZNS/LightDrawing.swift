@@ -93,6 +93,9 @@ enum LightDrawing {
                 bulb.fill(shape, with: .linearGradient(Gradient(colors: [color, color, color.opacity(0.62)]),
                                                         startPoint: CGPoint(x: -0.35, y: -0.4),
                                                         endPoint: CGPoint(x: 0.4, y: 0.5)))
+                if lights.bulb == .skyLantern || lights.bulb == .koi {
+                    paintDetails(in: bulb, design: lights.bulb)
+                }
                 if lights.bulb == .prism {
                     let facet = polygon([(0,-0.54),(0.19,-0.17),(0,0.55),(-0.08,-0.18)])
                     bulb.fill(facet, with: .color(.white.opacity(0.46)))
@@ -118,6 +121,26 @@ enum LightDrawing {
                               with: .color(.white.opacity(0.68)))
                 }
             }
+        }
+    }
+
+    static func paintDetails(in ctx: GraphicsContext, design: Bulb) {
+        var paint = ctx
+        paint.clip(to: silhouette(design))
+        if design == .koi {
+            for rect in [CGRect(x: -0.27, y: -0.22, width: 0.23, height: 0.34),
+                         CGRect(x: 0.09, y: -0.05, width: 0.21, height: 0.35)] {
+                paint.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.85)))
+            }
+            paint.fill(Path(ellipseIn: CGRect(x: 0.31, y: -0.1, width: 0.07, height: 0.07)), with: .color(.black.opacity(0.8)))
+        } else if design == .skyLantern {
+            let paper = CGRect(x: -0.5, y: -0.55, width: 1, height: 1.1)
+            paint.fill(Path(paper), with: .radialGradient(Gradient(colors: [Color(rgb: 0xfff5b6), .clear]),
+                       center: .init(x: 0, y: 0.22), startRadius: 0.02, endRadius: 0.53))
+            var rim = Path()
+            rim.move(to: .init(x: -0.28, y: 0.30))
+            rim.addQuadCurve(to: .init(x: 0.28, y: 0.30), control: .init(x: 0, y: 0.40))
+            paint.stroke(rim, with: .color(.black.opacity(0.36)), lineWidth: 0.035)
         }
     }
 
@@ -154,6 +177,25 @@ enum LightDrawing {
             Path(ellipseIn: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
         }
         switch kind {
+        case .skyLantern:
+            var paper = Path()
+            paper.move(to: .init(x: -0.24, y: 0.34))
+            paper.addQuadCurve(to: .init(x: -0.39, y: -0.36), control: .init(x: -0.45, y: -0.04))
+            paper.addQuadCurve(to: .init(x: 0.39, y: -0.36), control: .init(x: 0, y: -0.62))
+            paper.addQuadCurve(to: .init(x: 0.24, y: 0.34), control: .init(x: 0.45, y: -0.04))
+            paper.addQuadCurve(to: .init(x: -0.24, y: 0.34), control: .init(x: 0, y: 0.47))
+            paper.closeSubpath()
+            return paper
+        case .koi:
+            var fish = Path()
+            fish.move(to: .init(x: -0.33, y: 0))
+            fish.addCurve(to: .init(x: 0.52, y: 0), control1: .init(x: 0.02, y: -0.35), control2: .init(x: 0.47, y: -0.23))
+            fish.addCurve(to: .init(x: -0.33, y: 0), control1: .init(x: 0.48, y: 0.22), control2: .init(x: 0, y: 0.34))
+            fish.closeSubpath()
+            fish.addPath(polygon([(-0.24,0),(-0.58,-0.25),(-0.53,0),(-0.59,0.24)]))
+            fish.addPath(polygon([(0.12,-0.16),(-0.13,-0.35),(-0.08,-0.13)]))
+            fish.addPath(polygon([(0.12,0.16),(-0.13,0.35),(-0.08,0.13)]))
+            return fish
         case .prism:
             return polygon([(0,-0.54),(0.36,-0.20),(0.30,0.21),(0,0.55),(-0.30,0.21),(-0.36,-0.20)])
         case .saturn:

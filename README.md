@@ -4,6 +4,10 @@
 
 Hang a strand of warm lights from the Dock, tuck icicles under the menu bar, or let petals drift across the desktop. SZNS is an independent, open-source adaptation of [Festivitas](https://festivitas.app/) by **Tekwiz17**. The implementation, interface artwork and seasonal scenes in this repository are original.
 
+## Install the app
+
+[Download SZNS for macOS](https://github.com/Tekwiz17/SZNS/releases/latest/download/SZNS-macOS.zip), unzip it, then move **SZNS.app** to Applications. The release ZIP includes both Intel and Apple silicon. See **Opening a downloaded app** below for Gatekeeper instructions.
+
 ## Open in Xcode
 
 1. Download **Code → Download ZIP** from this repository and unzip it.
@@ -29,10 +33,14 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 | Settings | What you can change |
 | --- | --- |
 | General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving, wallpaper previews and Accessibility access. Check for new releases or replay the guide. |
-| Presets | Apply one of 19 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
+| Presets | Apply one of 21 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
 | Menu Bar | Choose placement above apps or on the desktop. Edit bulb design, spacing, size, density, pattern, speed, variation, opacity and pointer behavior. Adjust the wire color, thickness, span and sag. |
 | Dock | Independently configure the same settings for the Dock. Its strand follows the Dock’s visible bounds and orientation. |
 | Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti, a repeating midnight ball drop, aurora curtains, a meteor shower or drifting jellyfish. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+
+### Take a break
+
+Open **Settings → General → Quiet Hours** to set a daily start and end in local time. An overnight window such as 10 PM to 7 AM works across midnight. Equal start and end times leave the schedule inactive. **Pause Decorations** in the menu bar, or **Pause for…** in General, gives you a 15-, 30-, or 60-minute break. You can end the timed pause early. Quiet Hours still applies during its scheduled window. You can edit or preview scenes while the desktop is paused.
 
 ### Find your next scene
 
@@ -44,6 +52,8 @@ Every scene below also ships as a named color palette.
 
 | Scene | Menu bar and Dock bulbs | Desktop |
 | --- | --- | --- |
+| Lantern Festival | Paper sky lanterns and lantern bulbs | Rising lanterns with warm centers |
+| Koi Pond | Koi and blossoms | Swimming koi with trailing ripples |
 | Northern Lights | Crystal prisms and icicles | Slow curtains of mint, blue and violet light |
 | Perseid Night | Ringed planets and stars | A star field with passing meteors |
 | Moonlit Reef | Jellyfish and seashells | Translucent jellyfish float upward |

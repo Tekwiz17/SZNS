@@ -44,7 +44,7 @@ enum WeatherDrawing {
             drawBallDrop(in: ctx, size: size, weather: weather, time: t, colors: colors)
             return
         }
-        let flying = [.bats, .ghosts, .tide].contains(weather.effect)
+        let flying = [.bats, .ghosts, .tide, .pond, .lanterns].contains(weather.effect)
         let number = flying ? max(1, count / 5) : count
         for i in 0..<number {
             let seed = variation(i, 4)
@@ -58,7 +58,11 @@ enum WeatherDrawing {
                 let direction = i.isMultiple(of: 2) ? 1.0 : -1.0
                 x = wrap(seed * w + t * (direction * 52 * depth + weather.wind * 30), w + 48) - 24
                 y = variation(i, 8) * h + sin(t * 1.5 + seed * 18) * 10 * depth + sin(t * 0.37 + seed * 51) * 17
-            } else if weather.effect == .ghosts || weather.effect == .tide {
+            } else if weather.effect == .pond {
+                let heading = i.isMultiple(of: 2) ? 1.0 : -1.0
+                x = wrap(seed * w + t * depth * (heading * 22 + weather.wind * 9), w + 64) - 32
+                y = (0.12 + 0.76 * variation(i, 8)) * h + sin(t * 0.42 + seed * 15) * min(34, h * 0.10)
+            } else if [.ghosts, .tide, .lanterns].contains(weather.effect) {
                 y = wrap(variation(i, 8) * h - t * 19 * depth, h + 40) - 20
                 x = wrap(seed * w + weather.wind * t * 20 + sin(t * 0.74 + seed * 30) * 16, w + 32) - 16
             }
@@ -116,6 +120,25 @@ enum WeatherDrawing {
                     particle.fill(Path(ellipseIn: CGRect(x: eye, y: -0.14, width: 0.095, height: 0.16)),
                                   with: .color(Color(rgb: 0x302842)))
                 }
+            case .pond:
+                let direction = i.isMultiple(of: 2) ? 1.0 : -1.0
+                particle.scaleBy(x: direction, y: 1)
+                particle.rotate(by: .degrees(16 * cos(t * 0.42 + seed * 15) + 4 * sin(t * 2 + seed)))
+                particle.scaleBy(x: radius * 4.4, y: radius * 3.7)
+                particle.fill(LightDrawing.silhouette(.koi), with: .color(color))
+                LightDrawing.paintDetails(in: particle, design: .koi)
+                let wake = (t * 0.5 + seed).truncatingRemainder(dividingBy: 1)
+                let ripple = CGRect(x: -0.50 - wake * 0.65, y: -0.06 - 0.18 * wake,
+                                    width: 0.16 + wake * 0.5, height: 0.12 + wake * 0.36)
+                particle.stroke(Path(ellipseIn: ripple), with: .color(color.opacity(0.46 * (1 - wake))), lineWidth: 0.023)
+            case .lanterns:
+                particle.rotate(by: .degrees(8 * sin(t * 0.7 + seed * 9)))
+                particle.scaleBy(x: radius * 3.7, y: radius * 3.7)
+                particle.fill(Path(ellipseIn: .init(x: -0.8, y: -0.7, width: 1.6, height: 1.65)),
+                              with: .radialGradient(Gradient(colors: [color.opacity(0.4), .clear]),
+                                                    center: .init(x: 0, y: 0.11), startRadius: 0, endRadius: 0.83))
+                particle.fill(LightDrawing.silhouette(.skyLantern), with: .color(color))
+                LightDrawing.paintDetails(in: particle, design: .skyLantern)
             case .tide:
                 let pulse = sin(t * 1.8 + seed * 22)
                 let length = radius * 3.5
@@ -284,6 +307,8 @@ struct ScenePreview: View {
                 let area = CGRect(origin: .zero, size: size)
                 let sky: [Color] = {
                     switch scene.desktop.effect {
+                    case .lanterns: return [Color(rgb: 0x29253d), Color(rgb: 0x945b50)]
+                    case .pond: return [Color(rgb: 0x173e3c), Color(rgb: 0x517c71)]
                     case .aurora, .meteors: return [Color(rgb: 0x10182e), Color(rgb: 0x354961)]
                     case .tide: return [Color(rgb: 0x123d50), Color(rgb: 0x142634)]
                     case .petals: return [Color(rgb: 0x504668), Color(rgb: 0xd09699)]

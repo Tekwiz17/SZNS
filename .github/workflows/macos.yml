@@ -5,6 +5,8 @@ permissions:
 jobs:
   build:
     runs-on: macos-15
+    outputs:
+      version: ${{ steps.package.outputs.version }}
     steps:
       - uses: actions/checkout@v5
       - name: Check settings, patterns and Dock geometry
@@ -21,11 +23,15 @@ jobs:
       - name: Build the shared Xcode scheme
         run: |
           set -o pipefail
-          xcodebuild -project SZNS.xcodeproj -scheme SZNS -configuration Release -destination 'platform=macOS' -derivedDataPath "$RUNNER_TEMP/SZNSBuild" build
+          xcodebuild -project SZNS.xcodeproj -scheme SZNS -configuration Release ARCHS='arm64 x86_64' ONLY_ACTIVE_ARCH=NO -destination 'generic/platform=macOS' -derivedDataPath "$RUNNER_TEMP/SZNSBuild" build
       - name: Verify the app and Shortcuts metadata
+        id: package
         run: |
           app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
           codesign --verify --strict "$app"
+          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/SZNS"
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
           test -s "$app/Contents/Resources/AppIcon.icns"
           python3 - "$app/Contents/Resources/Metadata.appintents/extract.actionsdata" <<'PYTHON'
           import json, sys
@@ -94,8 +100,68 @@ jobs:
           "$RUNNER_TEMP/dock-check" "$pid" hidden
           "$RUNNER_TEMP/dock-check" "$pid" reveal
           "$RUNNER_TEMP/dock-check" "$pid" hidden
+      - name: Verify timed pause across a real app launch
+        run: |
+          app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
+          prefs="$HOME/Library/Application Support/SZNS/Preferences.json"
+          mkdir -p "$(dirname "$prefs")"
+          if [ ! -f "$prefs" ]; then
+            "$app/Contents/MacOS/SZNS" &
+            seed_pid=$!
+            sleep 2
+            swift -e 'import AppKit; guard let app = NSRunningApplication(processIdentifier: Int32(CommandLine.arguments[1])!), app.terminate() else { exit(1) }' "$seed_pid"
+            wait "$seed_pid"
+          fi
+          python3 - "$prefs" <<'PYTHON'
+          import json, pathlib, sys, time
+          p = pathlib.Path(sys.argv[1])
+          data = json.loads(p.read_text())
+          data.update(pausedUntil=time.time()-978307200+15, welcomed=True)
+          p.write_text(json.dumps(data))
+          PYTHON
+          "$app/Contents/MacOS/SZNS" &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          swift Tests/LivePauseCheck.swift "$pid"
       - uses: actions/upload-artifact@v4
         with:
           name: SZNS-macOS
           path: ${{ runner.temp }}/SZNS-macOS.zip
 
+
+  release:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency: szns-release
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: SZNS-macOS
+          path: packaged
+      - name: Publish the verified app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^[0-9]+([.][0-9]+){1,2}$ ]]
+          notes="releases/$VERSION.md"
+          if [[ ! -f "$notes" ]]; then exit 0; fi
+          tag="v$VERSION"
+          asset="packaged/SZNS-macOS.zip"
+          unzip -tq "$asset"
+          if gh release view "$tag" --json isDraft,assets > "$RUNNER_TEMP/release.json"; then
+            if jq -e '.isDraft == false and any(.assets[]; .name == "SZNS-macOS.zip" and .size > 0)' "$RUNNER_TEMP/release.json"; then
+              echo "$tag already has a published app."
+              exit 0
+            fi
+            echo "An incomplete release already exists for $tag." >&2
+            exit 1
+          fi
+          gh release create "$tag" "$asset" --target "$GITHUB_SHA" --title "SZNS $VERSION" --notes-file "$notes"

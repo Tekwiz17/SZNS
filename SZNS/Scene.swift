@@ -1,6 +1,7 @@
 import Foundation
 
 enum Bulb: String, CaseIterable, Codable, Sendable {
+    case koi = "Koi", skyLantern = "Paper Sky Lantern"
     case prism = "Crystal Prism", saturn = "Ringed Planet", jelly = "Jellyfish"
     case oval = "Classic", globe = "Globe", diode = "Diode", icicle = "Icicle"
     case heart = "Heart", star = "Star", snowflake = "Snowflake", moon = "Moon"
@@ -16,6 +17,7 @@ enum Pattern: String, CaseIterable, Codable, Sendable {
     case chase = "Chase", wave = "Wave", every = "Every Nth"
 }
 enum Effect: String, CaseIterable, Codable, Sendable {
+    case pond = "Swimming Koi", lanterns = "Rising Lanterns"
     case aurora = "Aurora Curtains", meteors = "Meteor Shower", tide = "Drifting Jellyfish"
     case ballDrop = "Midnight Ball Drop", bats = "Flying Bats", ghosts = "Floating Ghosts", confetti = "Confetti"
     case snow = "Snow", leaves = "Leaves", petals = "Petals", fireflies = "Fireflies", fireworks = "Fireworks", rain = "Rain"
@@ -130,6 +132,13 @@ struct Celebration {
     var speed = 1.0
     var size = 5.0
 
+    static let festivalScenes: [Celebration] = [
+        .init(name: "Lantern Festival", colors: [0xffab54, 0xf46b52, 0xffdc95], menu: .skyLantern, dock: .lantern,
+              pattern: .pulse, effect: .lanterns, speed: 0.75, size: 9),
+        .init(name: "Koi Pond", colors: [0xf29155, 0xfaf1d9, 0xd7674c], menu: .koi, dock: .blossom,
+              pattern: .wave, effect: .pond, speed: 0.7, size: 10)
+    ]
+
     static let nightScenes: [Celebration] = [
         .init(name: "Northern Lights", colors: [0x72edbe, 0x72cbe8, 0xbba7ff], menu: .prism, dock: .icicle,
               pattern: .wave, effect: .aurora, speed: 0.6, size: 9),
@@ -187,6 +196,22 @@ struct Celebration {
         return scene
     }
 }
+struct QuietHours: Codable, Equatable {
+    var enabled = false
+    var startMinute = 22 * 60
+    var endMinute = 7 * 60
+
+    func contains(_ date: Date, calendar: Calendar = .autoupdatingCurrent) -> Bool {
+        guard enabled, startMinute != endMinute else { return false }
+        let minute = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        return startMinute < endMinute ? (startMinute..<endMinute).contains(minute) : minute >= startMinute || minute < endMinute
+    }
+}
+
+enum DecorationState: Equatable {
+    case showing, timed(Date), quietHours
+}
+
 struct Preferences: Codable, Equatable {
     var scene = Season.winter.scene
     var looks = Season.allCases.map { Look(name: $0.rawValue, scene: $0.scene) }
@@ -194,6 +219,14 @@ struct Preferences: Codable, Equatable {
     var visibility = Visibility.both
     var power = Power.automatic
     var welcomed = false
+    var quietHours: QuietHours?
+    var pausedUntil: Date?
+
+    func decorationState(at now: Date, calendar: Calendar = .autoupdatingCurrent) -> DecorationState {
+        if let until = pausedUntil, until > now { return .timed(until) }
+        if quietHours?.contains(now, calendar: calendar) == true { return .quietHours }
+        return .showing
+    }
     // An absent revision identifies a preferences file written before the celebrations shipped.
     private(set) var celebrationRevision: Int?
 
@@ -227,8 +260,8 @@ struct Preferences: Codable, Equatable {
     @discardableResult
     mutating func installCelebrationsIfNeeded() -> Bool {
         let revision = celebrationRevision ?? 0
-        guard revision < 2 else { return false }
-        let additions = (revision < 1 ? Celebration.collection : []) + Celebration.nightScenes
+        guard revision < 3 else { return false }
+        let additions = (revision < 1 ? Celebration.collection : []) + (revision < 2 ? Celebration.nightScenes : []) + Celebration.festivalScenes
         for item in additions {
             // Keep a user-created preset with the same name independently selectable.
             let lookName = looks.contains { $0.name == item.name } ? item.name + " (SZNS)" : item.name
@@ -236,7 +269,7 @@ struct Preferences: Codable, Equatable {
             looks.append(Look(name: lookName, scene: item.scene))
             palettes.append(Palette(name: paletteName, colors: item.colors))
         }
-        celebrationRevision = 2
+        celebrationRevision = 3
         return true
     }
 }

@@ -193,6 +193,59 @@ struct DesktopSettings: View {
     }
 }
 
+struct QuietControls: View {
+    @ObservedObject var studio: Studio
+
+    private var hours: Binding<QuietHours> {
+        Binding(get: { studio.prefs.quietHours ?? QuietHours() }, set: { studio.prefs.quietHours = $0 })
+    }
+    private func clock(_ minute: Binding<Int>) -> Binding<Date> {
+        Binding(get: {
+            // A fixed UTC reference day avoids missing or repeated local DST hours in the editor.
+            Date(timeIntervalSince1970: Double(minute.wrappedValue * 60))
+        }, set: { date in
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+            minute.wrappedValue = calendar.component(.hour, from: date) * 60 + calendar.component(.minute, from: date)
+        })
+    }
+    var body: some View {
+        Section("Quiet Hours") {
+            Toggle("Pause every day", isOn: hours.enabled)
+            if hours.wrappedValue.enabled {
+                HStack {
+                    DatePicker("From", selection: clock(hours.startMinute), displayedComponents: .hourAndMinute)
+                    Spacer()
+                    DatePicker("Until", selection: clock(hours.endMinute), displayedComponents: .hourAndMinute)
+                }
+                .environment(\.timeZone, TimeZone(secondsFromGMT: 0)!)
+                if hours.wrappedValue.startMinute == hours.wrappedValue.endMinute {
+                    Text("Choose different start and end times to schedule a pause.").foregroundStyle(.secondary)
+                }
+            }
+            TimelineView(.periodic(from: .now, by: 1)) { tick in
+                HStack {
+                    switch studio.prefs.decorationState(at: tick.date) {
+                    case .timed(let until):
+                        Text("Paused until " + until.formatted(date: .omitted, time: .shortened))
+                        Spacer()
+                        Button("End timed pause") { studio.prefs.pausedUntil = nil }
+                    case .quietHours: Text("Quiet Hours are active").foregroundStyle(.secondary)
+                    case .showing: Text("Pause decorations"); Spacer()
+                        Menu("Pause for…") {
+                            ForEach([15, 30, 60], id: \.self) { minutes in
+                                Button("\(minutes) minutes") {
+                                    studio.prefs.pausedUntil = Date().addingTimeInterval(Double(minutes) * 60)
+                                }
+                            }
+                        }.fixedSize()
+                    }
+                }
+            }
+        }
+    }
+}
+
 struct GeneralSettings: View {
     @ObservedObject var studio: Studio
     @ObservedObject var nav: Navigation
@@ -218,6 +271,7 @@ struct GeneralSettings: View {
                 EnumRow(title: "Save power", value: $studio.prefs.power)
                 Toggle("Use my wallpaper in previews", isOn: $useWallpaper)
             }
+            QuietControls(studio: studio)
             Section("Accessibility") {
                 LabeledContent("Dock tracking") {
                     if nav.trusted { Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }

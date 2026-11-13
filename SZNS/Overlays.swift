@@ -50,7 +50,7 @@ final class Overlays {
     private var observer: AnyCancellable?
     private let locator = DockLocator()
     private(set) var dockStatus = "Locating Dock…"
-    private var asleep = false
+    private var inactiveReasons: Set<String> = []
     private let studio = Studio.shared
     private var nextBatterySample = Date.distantPast
     private var batteryIsLow = false
@@ -91,15 +91,54 @@ final class Overlays {
         }
         ws.addObserver(self, selector: #selector(refresh), name: NSWorkspace.activeSpaceDidChangeNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: NSApplication.didChangeScreenParametersNotification, object: nil)
+        for name in [Notification.Name.NSSystemTimeZoneDidChange, Notification.Name.NSSystemClockDidChange] {
+            NotificationCenter.default.addObserver(self, selector: #selector(refresh), name: name, object: nil)
+        }
         refresh()
     }
-    @objc private func sleep() { asleep = true; timer?.fireDate = .distantFuture; clear() }
-    @objc private func wake() { asleep = false; timer?.fireDate = Date(); refresh() }
+    private func reason(for name: Notification.Name) -> String {
+        switch name {
+        case NSWorkspace.screensDidSleepNotification, NSWorkspace.screensDidWakeNotification: return "display"
+        case NSWorkspace.willSleepNotification, NSWorkspace.didWakeNotification: return "system"
+        default: return "session"
+        }
+    }
+    @objc private func sleep(_ event: Notification) {
+        inactiveReasons.insert(reason(for: event.name))
+        timer?.fireDate = .distantFuture
+        clear()
+    }
+    @objc private func wake(_ event: Notification) {
+        inactiveReasons.remove(reason(for: event.name))
+        guard inactiveReasons.isEmpty else { return }
+        timer?.fireDate = Date()
+        refresh()
+    }
     private func clear() { entries.values.forEach { $0.panel.orderOut(nil) }; entries.removeAll() }
 
     @objc func refresh() {
         let p = studio.prefs, screens = NSScreen.screens
-        guard !asleep, let primary = screens.first, p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
+        let now = Date()
+        switch p.decorationState(at: now) {
+        case .timed(let until):
+            dockStatus = "Decorations paused"
+            clear()
+            if inactiveReasons.isEmpty { timer?.fireDate = until }
+            return
+        case .quietHours:
+            dockStatus = "Quiet Hours"
+            clear()
+            if inactiveReasons.isEmpty {
+                timer?.fireDate = Date(timeIntervalSinceReferenceDate: (floor(now.timeIntervalSinceReferenceDate / 60) + 1) * 60)
+            }
+            return
+        case .showing: break
+        }
+        // A settings change can end a pause before its scheduled wake-up.
+        if inactiveReasons.isEmpty, let timer, timer.fireDate.timeIntervalSince(now) > 0.24 {
+            timer.fireDate = now.addingTimeInterval(0.20)
+        }
+        guard inactiveReasons.isEmpty, let primary = screens.first, p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
             if !p.scene.dock.enabled { dockStatus = "Off" }
             clear(); return
         }

@@ -97,6 +97,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
         menu.removeAllItems()
         menu.addItem(command("Settings…", #selector(showSettings), ","))
         menu.addItem(.separator())
+        addPauseControls(to: menu)
+        menu.addItem(.separator())
         for (i, layer) in Layer.allCases.enumerated() {
             let entry = command(layer == .desktop ? "Desktop effects" : layer.rawValue + " lights", #selector(toggleLayer(_:)))
             let scene = studio.prefs.scene
@@ -127,6 +129,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
             menu.addItem(presets)
         }
         menu.addItem(.separator()); menu.addItem(command("Quit SZNS", #selector(quit), "q"))
+    }
+    private func addPauseControls(to menu: NSMenu) {
+        switch studio.prefs.decorationState(at: Date()) {
+        case .timed(let until):
+            menu.addItem(.sectionHeader(title: "Paused until " + until.formatted(date: .omitted, time: .shortened)))
+            menu.addItem(command("End Timed Pause", #selector(endPause)))
+        case .quietHours:
+            menu.addItem(.sectionHeader(title: "Quiet Hours are active"))
+        case .showing: break
+        }
+        let root = NSMenuItem(title: "Pause Decorations", action: nil, keyEquivalent: "")
+        let choices = NSMenu(title: "Pause Decorations")
+        for minutes in [15, 30, 60] {
+            let item = command("For " + String(minutes) + " minutes", #selector(pauseDecorations(_:)))
+            item.tag = minutes
+            choices.addItem(item)
+        }
+        root.submenu = choices
+        menu.addItem(root)
+    }
+    @objc private func endPause() { studio.prefs.pausedUntil = nil }
+    @objc private func pauseDecorations(_ sender: NSMenuItem) {
+        studio.prefs.pausedUntil = Date().addingTimeInterval(Double(sender.tag) * 60)
     }
     @objc private func toggleLayer(_ sender: NSMenuItem) {
         switch Layer.allCases[sender.tag] {
