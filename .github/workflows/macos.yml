@@ -29,7 +29,7 @@ jobs:
         run: |
           app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
           codesign --verify --strict "$app"
-          lipo -verify_arch arm64 x86_64 "$app/Contents/MacOS/SZNS"
+          lipo "$app/Contents/MacOS/SZNS" -verify_arch arm64 x86_64
           version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")
           echo "version=$version" >> "$GITHUB_OUTPUT"
           test -s "$app/Contents/Resources/AppIcon.icns"
