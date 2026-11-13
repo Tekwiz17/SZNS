@@ -35,6 +35,24 @@ func approachRightEdge() {
         previous = x
     }
 }
+// The Dock can retain a full-screen input window while its shelf is hidden.
+// Read the actual Accessibility list on this single-display CI Mac.
+func shelfFrame() -> CGRect? {
+    func read(_ element: AXUIElement, _ key: CFString) -> CFTypeRef? {
+        var value: CFTypeRef?
+        return AXUIElementCopyAttributeValue(element, key, &value) == .success ? value : nil
+    }
+    let dock = AXUIElementCreateApplication(dockPID)
+    guard let roots = read(dock, kAXChildrenAttribute as CFString) as? [AXUIElement],
+          let list = roots.first(where: { read($0, kAXRoleAttribute as CFString) as? String == "AXList" }) else { return nil }
+    var origin = CGPoint.zero, size = CGSize.zero
+    guard let s = read(list, kAXSizeAttribute as CFString), CFGetTypeID(s) == AXValueGetTypeID(),
+          AXValueGetValue(s as! AXValue, .cgSize, &size) else { return nil }
+    if size == .zero { return .zero }
+    if let p = read(list, kAXPositionAttribute as CFString), CFGetTypeID(p) == AXValueGetTypeID(),
+       AXValueGetValue(p as! AXValue, .cgPoint, &origin) { return CGRect(origin: origin, size: size) }
+    return nil
+}
 var lastDiagnostic = ""
 var measuredLength: CGFloat?
 var matched = false
@@ -52,12 +70,14 @@ for attempt in 0..<50 {
     let overlays = frames(pid: appPID, layer: level + 1)
     let visible = screen.visibleFrame
     lastDiagnostic = "screen=\(display) usable=\(visible) Dock windows=\(docks) SZNS strips=\(overlays)"
-    if reveal && docks.isEmpty && attempt.isMultiple(of: 10) { approachRightEdge() }
-    if expectHidden { matched = overlays.isEmpty && docks.isEmpty }
+    let shelf = (reveal || expectHidden) ? shelfFrame() : nil
+    let visibleShelf = shelf.map { $0.intersection(display).width >= 5 && $0.height > 50 } ?? false
+    if reveal && !visibleShelf && attempt.isMultiple(of: 10) { approachRightEdge() }
+    if expectHidden { matched = overlays.isEmpty && ((shelf != nil && !visibleShelf) || docks.isEmpty) }
     else if let panel = overlays.first, overlays.count == 1 {
         switch side {
         case "reveal":
-            matched = !docks.isEmpty && panel.maxX <= display.maxX + 1 && panel.maxX > display.maxX - 18 && panel.width > 8 && panel.height > 50 && panel.height <= display.height
+            matched = visibleShelf && panel.maxX <= display.maxX + 1 && panel.maxX > display.maxX - 18 && panel.width > 8 && panel.height > 50 && panel.height <= display.height
         case "left":
             matched = visible.minX > display.minX + 15 && abs(panel.maxX - visible.minX) < 10 && panel.height <= display.height
         case "right":
