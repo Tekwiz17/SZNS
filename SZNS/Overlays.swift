@@ -15,6 +15,7 @@ private struct Surface: Equatable {
 }
 private struct SurfaceView: View {
     let spec: Surface
+    @State private var snowStarted = ProcessInfo.processInfo.systemUptime
     var body: some View {
         let staticLights = spec.lights.map { ($0.pattern == .steady || $0.pattern == .off || $0.pattern == .every) && $0.pointer == .none } ?? false
         TimelineView(.animation(minimumInterval: spec.lowPower ? 1.0 / 12 : 1.0 / 30,
@@ -26,10 +27,12 @@ private struct SurfaceView: View {
                 if let light = spec.lights {
                     LightDrawing.draw(in: context, size: size, lights: light, time: time, edge: spec.edge, pointer: mouse, displayedYear: spec.displayedYear)
                 } else if let weather = spec.weather {
-                    WeatherDrawing.draw(in: context, size: size, weather: weather, time: time, pointer: mouse)
+                    let snowAge = spec.reducedMotion ? 40 : ProcessInfo.processInfo.systemUptime - snowStarted
+                    WeatherDrawing.draw(in: context, size: size, weather: weather, time: time, pointer: mouse, snowAge: snowAge)
                 }
             }
         }
+        .onChange(of: spec.weather?.accumulatesSnow) { _, _ in snowStarted = ProcessInfo.processInfo.systemUptime }
         .accessibilityHidden(true)
     }
 }
@@ -136,7 +139,7 @@ final class Overlays {
         case .showing: break
         }
         guard inactiveReasons.isEmpty else { clear(); return }
-        guard p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
+        guard p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.hasVisibleEffect else {
             dockStatus = "Off"
             clear()
             timer?.fireDate = .distantFuture
@@ -172,7 +175,7 @@ final class Overlays {
         for screen in screens {
             let frame = screen.frame
             let id = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.stringValue ?? NSStringFromRect(frame)
-            if p.scene.desktop.enabled {
+            if p.scene.desktop.hasVisibleEffect {
                 wanted[id + ".desktop"] = Surface(layer: .desktop, frame: frame, weather: p.scene.desktop, lowPower: low, reducedMotion: reduced)
             }
             if p.scene.menu.enabled, let barBottom = menuBottom(screen, windows: windows, primaryHeight: primary.frame.height) {

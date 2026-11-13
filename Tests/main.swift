@@ -9,6 +9,17 @@ func check(_ name: String, _ assertion: @autoclosure () throws -> Bool) rethrows
     print("PASS \(name)")
 }
 
+var snowfall = Weather()
+let oldSnow = try JSONEncoder().encode(snowfall)
+try check("Snow scenes from 1.4 gain piles on load", try JSONDecoder().decode(Weather.self, from: oldSnow).accumulatesSnow)
+snowfall.pilesEnabled = false
+try check("Falling-only snow choice survives relaunch", try !JSONDecoder().decode(Weather.self, from: JSONEncoder().encode(snowfall)).pilesEnabled)
+snowfall.pilesEnabled = true
+check("Turning piles back on restores the saved scene's canonical settings", snowfall == Weather())
+snowfall.effect = .rain
+check("Rain cannot show snow piles", !snowfall.accumulatesSnow)
+snowfall.density = 0
+check("Zero particle amount requires no desktop overlay", !snowfall.hasVisibleEffect)
 let original = Preferences()
 let data = try JSONEncoder().encode(original)
 try check("Every preference round-trips", try JSONDecoder().decode(Preferences.self, from: data) == original)

@@ -29,6 +29,7 @@ struct PresetSettings: View {
     @State private var overwrite: UUID?
     @State private var query = ""
     @State private var favoritesOnly = false
+    @State private var showPalettes = false
 
     private var visibleLooks: [Look] {
         studio.prefs.looks.filter { $0.matches(query) && (!favoritesOnly || $0.favorite == true) }
@@ -42,78 +43,83 @@ struct PresetSettings: View {
     var body: some View {
         Form {
             Section {
+                Picker("Collection", selection: $showPalettes) {
+                    Text("Scenes").tag(false)
+                    Text("Color palettes").tag(true)
+                }.pickerStyle(.segmented)
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField("Search scenes, bulbs, effects or palettes", text: $query).textFieldStyle(.plain)
+                    TextField(showPalettes ? "Search color palettes" : "Search scenes, bulbs or effects", text: $query).textFieldStyle(.plain)
                     if !query.isEmpty {
                         Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
                             .buttonStyle(.borderless).accessibilityLabel("Clear search")
                     }
                 }
-                Toggle("Favorite scenes only", isOn: $favoritesOnly)
+                if !showPalettes { Toggle("Favorite scenes only", isOn: $favoritesOnly) }
             }
-            Section {
-                if visibleLooks.isEmpty {
-                    Text(favoritesOnly && query.isEmpty ? "Star a scene to find it here." : "No matching scenes.")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(visibleLooks) { look in
+            if showPalettes {
+                Section {
+                    ForEach(visiblePalettes) { p in
+                        HStack {
+                            Text(p.name); Spacer(); Swatches(colors: p.colors)
+                            Menu("Apply to") {
+                                Button("Menu Bar") { studio.prefs.scene.menu.colors = p.colors; studio.prefs.scene.menu.useTemperature = false }
+                                Button("Dock") { studio.prefs.scene.dock.colors = p.colors; studio.prefs.scene.dock.useTemperature = false }
+                                Button("Desktop") { studio.prefs.scene.desktop.colors = p.colors }
+                            }.fixedSize()
+                            Menu {
+                                Button("Edit name and colors…") { sheet = .editPalette(p) }
+                                Button("Export…") { studio.exportPalette(p) }
+                                Button("Delete…", role: .destructive) { removing = p.id }
+                            } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + p.name)
+                        }
+                    }
+                    if visiblePalettes.isEmpty && !query.isEmpty { Text("No matching palettes.").foregroundStyle(.secondary) }
                     HStack {
-                        Button {
-                            if let i = studio.prefs.looks.firstIndex(where: { $0.id == look.id }) {
-                                studio.prefs.looks[i].favorite = look.favorite != true
-                            }
-                        } label: {
-                            Image(systemName: look.favorite == true ? "star.fill" : "star")
-                                .foregroundStyle(look.favorite == true ? Color.accentColor : .secondary)
-                        }
-                        .buttonStyle(.borderless)
-                        .accessibilityLabel(look.favorite == true ? "Unfavorite " + look.name : "Favorite " + look.name)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(look.name)
-                            Text("\(look.scene.menu.bulb.displayName) · \(look.scene.desktop.effect.rawValue)")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
+                        Button { sheet = .newPalette } label: { Label("New palette…", systemImage: "plus") }
                         Spacer()
-                        Swatches(colors: look.scene.menu.colors)
-                        Button { sheet = .preview(look) } label: { Image(systemName: "eye") }
-                            .buttonStyle(.borderless).help("Preview or mix " + look.name).accessibilityLabel("Preview or mix " + look.name)
-                        Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
-                            .disabled(studio.prefs.scene == look.scene)
-                        Menu {
-                            Button("Rename…") { sheet = .renameScene(look) }
-                            Button("Update from current settings…") { overwrite = look.id }
-                            Button("Duplicate") { studio.prefs.looks.append(.init(name: look.name + " Copy", scene: look.scene)) }
-                            Divider()
-                            Button("Delete…", role: .destructive) { removing = look.id }
-                        } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + look.name)
+                        Button("Import palette…") { studio.importPalette() }
                     }
                 }
-                Button { sheet = .newScene } label: { Label("Save current scene…", systemImage: "plus") }
-            } header: { Text("Scenes") } footer: {
-                Text("A scene saves the Dock, menu bar and desktop together. After adjusting a scene, use its menu to save your changes.")
-            }
-            Section("Color palettes") {
-                ForEach(visiblePalettes) { p in
-                    HStack {
-                        Text(p.name); Spacer(); Swatches(colors: p.colors)
-                        Menu("Apply to") {
-                            Button("Menu Bar") { studio.prefs.scene.menu.colors = p.colors; studio.prefs.scene.menu.useTemperature = false }
-                            Button("Dock") { studio.prefs.scene.dock.colors = p.colors; studio.prefs.scene.dock.useTemperature = false }
-                            Button("Desktop") { studio.prefs.scene.desktop.colors = p.colors }
-                        }.fixedSize()
-                        Menu {
-                            Button("Edit name and colors…") { sheet = .editPalette(p) }
-                            Button("Export…") { studio.exportPalette(p) }
-                            Button("Delete…", role: .destructive) { removing = p.id }
-                        } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + p.name)
+            } else {
+                Section {
+                    if visibleLooks.isEmpty {
+                        Text(favoritesOnly && query.isEmpty ? "Star a scene to find it here." : "No matching scenes.")
+                            .foregroundStyle(.secondary)
                     }
-                }
-                if visiblePalettes.isEmpty && !query.isEmpty { Text("No matching palettes.").foregroundStyle(.secondary) }
-                HStack {
-                    Button { sheet = .newPalette } label: { Label("New palette…", systemImage: "plus") }
-                    Spacer()
-                    Button("Import palette…") { studio.importPalette() }
+                    ForEach(visibleLooks) { look in
+                        HStack {
+                            Button {
+                                if let i = studio.prefs.looks.firstIndex(where: { $0.id == look.id }) {
+                                    studio.prefs.looks[i].favorite = look.favorite != true
+                                }
+                            } label: {
+                                Image(systemName: look.favorite == true ? "star.fill" : "star")
+                                    .foregroundStyle(look.favorite == true ? Color.accentColor : .secondary)
+                            }
+                            .buttonStyle(.borderless)
+                            .accessibilityLabel(look.favorite == true ? "Unfavorite " + look.name : "Favorite " + look.name)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(look.name)
+                                Text("\(look.scene.menu.bulb.displayName) · \(look.scene.desktop.effect.rawValue)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Swatches(colors: look.scene.menu.colors)
+                            Button { sheet = .preview(look) } label: { Image(systemName: "eye") }
+                                .buttonStyle(.borderless).help("Preview or mix " + look.name).accessibilityLabel("Preview or mix " + look.name)
+                            Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
+                                .disabled(studio.prefs.scene == look.scene)
+                            Menu {
+                                Button("Rename…") { sheet = .renameScene(look) }
+                                Button("Update from current settings…") { overwrite = look.id }
+                                Button("Duplicate") { studio.prefs.looks.append(.init(name: look.name + " Copy", scene: look.scene)) }
+                                Divider()
+                                Button("Delete…", role: .destructive) { removing = look.id }
+                            } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + look.name)
+                        }
+                    }
+                    Button { sheet = .newScene } label: { Label("Save current scene…", systemImage: "plus") }
                 }
             }
         }.formStyle(.grouped)
@@ -159,10 +165,11 @@ private struct MixSceneSheet: View {
     @State private var selected = Set(Layer.allCases)
 
     private func detail(_ layer: Layer) -> String {
+        let scene = selected.contains(layer) ? look.scene : studio.prefs.scene
         switch layer {
-        case .menu: return look.scene.menu.enabled ? look.scene.menu.bulb.displayName : "Off"
-        case .dock: return look.scene.dock.enabled ? look.scene.dock.bulb.displayName : "Off"
-        case .desktop: return look.scene.desktop.enabled ? look.scene.desktop.effect.rawValue : "Off"
+        case .menu: return scene.menu.enabled ? scene.menu.bulb.displayName : "Off"
+        case .dock: return scene.dock.enabled ? scene.dock.bulb.displayName : "Off"
+        case .desktop: return scene.desktop.enabled ? scene.desktop.effect.rawValue : "Off"
         }
     }
 

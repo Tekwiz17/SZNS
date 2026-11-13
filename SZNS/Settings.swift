@@ -125,45 +125,46 @@ struct LightSettings: View {
                     Button("Allow precise Dock tracking…") { Accessibility.request(); Accessibility.openSettings() }
                 }
             }
-            Section("Bulbs") {
-                Picker("Design", selection: $light.bulb) {
+            Section("Appearance") {
+                Picker("Bulb", selection: $light.bulb) {
                     ForEach(Bulb.allCases.filter { $0 != .custom || light.customMask != nil }, id: \.self) { b in Text(b.displayName).tag(b) }
                 }
-                LabeledContent("Custom design") {
-                    Button("Import SVG…") {
-                        if let mask = studio.importBulb() { light.customMask = mask; light.bulb = .custom }
-                    }.help("The SVG silhouette takes on the colors of your lights.")
-                }
                 NumberRow(label: "Size", value: $light.size, range: Lights.sizeRange, unit: " pt")
-                NumberRow(label: "Distance", value: $light.spacing, range: 8...90, unit: " pt")
-                NumberRow(label: "Density", value: $light.density, range: 0.05...1, step: 0.05, percent: true)
-                NumberRow(label: "Opacity", value: $light.opacity, range: 0.05...1, step: 0.05, percent: true)
-            }
-            Section("Animation") {
                 EnumRow(title: "Pattern", value: $light.pattern)
-                if [.chase, .every].contains(light.pattern) {
-                    NumberRow(label: "Repeat every", value: $light.interval, range: 2...24, unit: " bulbs")
-                }
-                if light.pattern == .wave {
-                    NumberRow(label: "Wavelength", value: $light.waveLength, range: 2...48, unit: " bulbs")
-                }
-                NumberRow(label: "Speed", value: $light.speed, range: 0.1...3, unit: "×", step: 0.1)
-                NumberRow(label: "Variation", value: $light.variation, range: 0...1, step: 0.05, percent: true)
-                EnumRow(title: "Near the pointer", value: $light.pointer)
-            }
-            Section("Light color") {
                 Picker("Color source", selection: $light.useTemperature) {
-                    Text("Palette").tag(false); Text("Temperature").tag(true)
+                    Text("Palette").tag(false)
+                    Text("Temperature").tag(true)
                 }
                 if light.useTemperature {
                     NumberRow(label: "Temperature", value: $light.temperature, range: 1800...10000, unit: " K", step: 100)
                 } else { PaletteEditor(colors: $light.colors, studio: studio) }
             }
-            Section("Cable") {
-                ColorPicker("Color", selection: Binding(get: { Color(rgb: light.wire) }, set: { light.wire = $0.rgb }), supportsOpacity: false)
-                NumberRow(label: "Thickness", value: $light.thickness, range: 0.5...5, unit: " pt", step: 0.1)
-                NumberRow(label: "Drop width", value: $light.span, range: 30...520, unit: " pt", step: 5)
-                NumberRow(label: "Drop height", value: $light.sag, range: 0...70, unit: " pt")
+            Section {
+                DisclosureGroup("Spacing, motion & custom bulbs") {
+                    NumberRow(label: "Distance", value: $light.spacing, range: 8...90, unit: " pt")
+                    NumberRow(label: "Density", value: $light.density, range: 0.05...1, step: 0.05, percent: true)
+                    NumberRow(label: "Opacity", value: $light.opacity, range: 0.05...1, step: 0.05, percent: true)
+                    if [.chase, .every].contains(light.pattern) {
+                        NumberRow(label: "Repeat every", value: $light.interval, range: 2...24, unit: " bulbs")
+                    }
+                    if light.pattern == .wave {
+                        NumberRow(label: "Wavelength", value: $light.waveLength, range: 2...48, unit: " bulbs")
+                    }
+                    if [.chase, .pulse, .twinkle, .wave].contains(light.pattern) {
+                        NumberRow(label: "Speed", value: $light.speed, range: 0.1...3, unit: "×", step: 0.1)
+                    }
+                    NumberRow(label: "Variation", value: $light.variation, range: 0...1, step: 0.05, percent: true)
+                    EnumRow(title: "Near the pointer", value: $light.pointer)
+                    Button("Import bulb from SVG…") {
+                        if let mask = studio.importBulb() { light.customMask = mask; light.bulb = .custom }
+                    }
+                }
+                DisclosureGroup("Cable") {
+                    ColorPicker("Color", selection: Binding(get: { Color(rgb: light.wire) }, set: { light.wire = $0.rgb }), supportsOpacity: false)
+                    NumberRow(label: "Thickness", value: $light.thickness, range: 0.5...5, unit: " pt", step: 0.1)
+                    NumberRow(label: "Drop width", value: $light.span, range: 30...520, unit: " pt", step: 5)
+                    NumberRow(label: "Drop height", value: $light.sag, range: 0...70, unit: " pt")
+                }
             }
         }.formStyle(.grouped)
     }
@@ -176,19 +177,23 @@ struct DesktopSettings: View {
             Section {
                 Toggle("Enable desktop effects", isOn: $studio.prefs.scene.desktop.enabled)
                 EnumRow(title: "Effect", value: $studio.prefs.scene.desktop.effect)
-                LabeledContent("Placement", value: "Desktop only")
-            }
-            Section(studio.prefs.scene.desktop.effect == .aurora ? "Curtains" : "Particles") {
                 NumberRow(label: "Amount", value: $studio.prefs.scene.desktop.density, range: 0...1, step: 0.05, percent: true)
-                NumberRow(label: "Size", value: $studio.prefs.scene.desktop.size, range: 1...16, unit: " pt", step: 0.5)
-                NumberRow(label: "Speed", value: $studio.prefs.scene.desktop.speed, range: 0.1...3, unit: "×", step: 0.1)
-                NumberRow(label: "Opacity", value: $studio.prefs.scene.desktop.opacity, range: 0.05...1, step: 0.05, percent: true)
-                NumberRow(label: "Wind (left to right)", value: $studio.prefs.scene.desktop.wind, range: -1...1, step: 0.05, percent: true)
-                if ![Effect.fireworks, .ballDrop, .aurora, .meteors].contains(studio.prefs.scene.desktop.effect) {
-                    NumberRow(label: "Pointer repulsion", value: $studio.prefs.scene.desktop.repel, range: 0...1, step: 0.05, percent: true)
+                if studio.prefs.scene.desktop.effect == .snow {
+                    Toggle("Let snow pile up", isOn: $studio.prefs.scene.desktop.pilesEnabled)
                 }
             }
-            Section("Effect colors") { PaletteEditor(colors: $studio.prefs.scene.desktop.colors, studio: studio) }
+            Section {
+                PaletteEditor(colors: $studio.prefs.scene.desktop.colors, studio: studio)
+                DisclosureGroup("Motion & appearance") {
+                    NumberRow(label: "Size", value: $studio.prefs.scene.desktop.size, range: 1...16, unit: " pt", step: 0.5)
+                    NumberRow(label: "Speed", value: $studio.prefs.scene.desktop.speed, range: 0.1...3, unit: "×", step: 0.1)
+                    NumberRow(label: "Opacity", value: $studio.prefs.scene.desktop.opacity, range: 0.05...1, step: 0.05, percent: true)
+                    NumberRow(label: "Wind", value: $studio.prefs.scene.desktop.wind, range: -1...1, step: 0.05, percent: true)
+                    if ![Effect.fireworks, .ballDrop, .aurora, .meteors].contains(studio.prefs.scene.desktop.effect) {
+                        NumberRow(label: "Pointer repulsion", value: $studio.prefs.scene.desktop.repel, range: 0...1, step: 0.05, percent: true)
+                    }
+                }
+            }
         }.formStyle(.grouped)
     }
 }
@@ -251,8 +256,7 @@ struct GeneralSettings: View {
     @ObservedObject var nav: Navigation
     @AppStorage("useWallpaperPreview") private var useWallpaper = false
     @AppStorage("automaticReleaseChecks") private var automaticUpdates = false
-    @State private var login = SMAppService.mainApp.status == .enabled
-    @State private var approvalNeeded = SMAppService.mainApp.status == .requiresApproval
+    @State private var loginStatus = SMAppService.mainApp.status
     var body: some View {
         Form {
             Section("On your Mac") {
@@ -260,14 +264,13 @@ struct GeneralSettings: View {
                 if studio.prefs.visibility == .neither {
                     Text("To reopen Settings, launch SZNS from Finder or Spotlight.").font(.callout).foregroundStyle(.secondary)
                 }
-                Toggle("Launch at login", isOn: Binding(get: { login }, set: { enable in
+                Toggle("Launch at login", isOn: Binding(get: { loginStatus == .enabled || loginStatus == .requiresApproval }, set: { enable in
                     do {
                         if enable { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
                     } catch { studio.message = error.localizedDescription }
-                    login = SMAppService.mainApp.status == .enabled
-                    approvalNeeded = SMAppService.mainApp.status == .requiresApproval
+                    loginStatus = SMAppService.mainApp.status
                 }))
-                if approvalNeeded { Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() } }
+                if loginStatus == .requiresApproval { Button("Approve in Login Items…") { SMAppService.openSystemSettingsLoginItems() } }
                 EnumRow(title: "Save power", value: $studio.prefs.power)
                 Toggle("Use my wallpaper in previews", isOn: $useWallpaper)
             }
@@ -289,6 +292,9 @@ struct GeneralSettings: View {
                 Button("Quit SZNS") { NSApp.terminate(nil) }
             }
         }.formStyle(.grouped)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            loginStatus = SMAppService.mainApp.status
+        }
     }
 }
 

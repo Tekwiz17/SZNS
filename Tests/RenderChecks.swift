@@ -42,11 +42,40 @@ enum RenderChecks {
         print("PASS original unreadable preferences preserved across repeated saves")
     }
 
+    static func checkSnowPiles() {
+        func frame(age: Double, piles: Bool, density: Double = 0.8, effect: Effect = .snow) -> Data {
+            var weather = Weather()
+            weather.effect = effect
+            weather.pilesEnabled = piles
+            weather.density = density
+            return pixels { ctx, size in
+                WeatherDrawing.draw(in: ctx, size: size, weather: weather, time: age, preview: true, snowAge: age)
+            }
+        }
+        func pilePixels(at age: Double) -> Int {
+            let snow = frame(age: age, piles: true), flakes = frame(age: age, piles: false)
+            var changed = 0
+            for index in stride(from: 0, to: snow.count, by: 4) where snow[index..<index+4] != flakes[index..<index+4] {
+                let row = index / (4 * 256)
+                precondition(row < 19 || row >= 144 - 19, "Snow bank exceeded its desktop-edge depth limit")
+                changed += 1
+            }
+            return changed
+        }
+        precondition(pilePixels(at: 0) == 0 && pilePixels(at: 32) > pilePixels(at: 2), "Snow did not build from recent landings")
+        precondition(pilePixels(at: 3600) > 0, "Snow disappeared after prolonged snowfall")
+        precondition(frame(age: 40, piles: true) == frame(age: 40, piles: true), "Reduced Motion bank is unstable")
+        precondition(frame(age: 40, piles: true, density: 0).allSatisfy { $0 == 0 }, "Zero snowfall left a bank")
+        precondition(frame(age: 40, piles: true, effect: .rain) == frame(age: 40, piles: false, effect: .rain), "Snow leaked into rain")
+        print("PASS snow growth, bounded depth, stationary frame, opt-out and zero amount")
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         try checkPreferenceRecovery()
+        checkSnowPiles()
         var firstFrames = Set<Data>()
-        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns, .bubbles] {
+        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns, .bubbles, .rain] {
             var weather = Weather()
             weather.effect = effect
             weather.size = 8

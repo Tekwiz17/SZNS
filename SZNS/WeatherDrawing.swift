@@ -1,13 +1,79 @@
 import SwiftUI
 
+// Reconstruct recent landings on a small height field. Each display has its own
+// snowfall clock. The fixed melt window keeps memory and depth bounded.
+private struct SnowBank {
+    let depths: [Double]
+    let maximum: Double
+
+    init(size: CGSize, count: Int, weather: Weather, time: Double, preview: Bool) {
+        let w = size.width, h = size.height
+        let bins = max(8, min(96, Int(w / (preview ? 12 : 26))))
+        var deposits = Array(repeating: 0.0, count: bins + 1)
+        let meltTime = 75.0
+        for i in 0..<count {
+            let fall = 28 * (0.45 + 0.78 * variation(i, 5))
+            let first = (h + 10 - variation(i, 8) * h) / fall
+            let period = (h + 20) / fall
+            guard time >= first else { continue }
+            var landing = first + floor((time - first) / period) * period
+            while landing >= first - 0.00001 && time - landing < meltTime {
+                let x = WeatherDrawing.fallingX(index: i, time: landing, width: w, wind: weather.wind, sway: 6)
+                let position = min(Double(bins), max(0, x / w * Double(bins)))
+                let center = Int(position)
+                let age = max(0, time - landing)
+                let weight = min(1, age * 2) * (1 - age / meltTime) * (preview ? 0.9 : 1.7) * sqrt(weather.size)
+                for bin in max(0, center - 2)...min(bins, center + 3) {
+                    let distance = abs(Double(bin) - position)
+                    deposits[bin] += weight * max(0, 1 - distance / 2.6)
+                }
+                landing -= period
+            }
+        }
+        let limit = min(h * 0.12, 64)
+        maximum = limit
+        depths = deposits.map { limit * (1 - exp(-$0 / limit)) }
+    }
+
+    func draw(in ctx: GraphicsContext, size: CGSize, tint: Color, opacity: Double) {
+        guard depths.contains(where: { $0 > 0.02 }) else { return }
+        let h = size.height, step = size.width / Double(depths.count - 1)
+        var crest = Path()
+        var previous = CGPoint(x: 0, y: h - depths[0])
+        crest.move(to: previous)
+        for i in 1..<depths.count {
+            let next = CGPoint(x: Double(i) * step, y: h - depths[i])
+            crest.addQuadCurve(to: CGPoint(x: (previous.x + next.x) / 2, y: (previous.y + next.y) / 2), control: previous)
+            previous = next
+        }
+        crest.addLine(to: previous)
+        var bank = crest
+        bank.addLine(to: CGPoint(x: size.width, y: h))
+        bank.addLine(to: CGPoint(x: 0, y: h))
+        bank.closeSubpath()
+        var snow = ctx
+        snow.opacity = opacity
+        snow.fill(bank, with: .linearGradient(Gradient(colors: [.white, tint, tint.opacity(0.78)]),
+                                              startPoint: .init(x: 0, y: h - maximum), endPoint: .init(x: 0, y: h)))
+        snow.clip(to: bank)
+        snow.stroke(crest, with: .color(.white.opacity(0.82)), lineWidth: 2)
+    }
+}
+
 enum WeatherDrawing {
+    fileprivate static func fallingX(index: Int, time: Double, width: Double, wind: Double, sway: Double) -> Double {
+        let seed = variation(index, 4), depth = 0.45 + 0.78 * variation(index, 5)
+        let x = seed * width + wind * time * 47 * depth + sin(time * 0.8 + seed * 100) * sway
+        return x - floor(x / (width + 20)) * (width + 20) - 10
+    }
+
     static func draw(in ctx: GraphicsContext, size: CGSize, weather: Weather, time: Double,
-                     pointer: CGPoint? = nil, preview: Bool = false) {
-        guard weather.enabled, weather.density > 0, size.width > 0, size.height > 0 else { return }
+                     pointer: CGPoint? = nil, preview: Bool = false, snowAge: Double? = nil) {
+        guard weather.hasVisibleEffect, size.width > 0, size.height > 0 else { return }
         let w = size.width, h = size.height
         let colors = weather.colors.isEmpty ? [0xffffff] : weather.colors
         let count = max(1, Int(min(700, w * h / (preview ? 800 : 4700) * weather.density)))
-        let t = time * weather.speed
+        let t = (weather.accumulatesSnow ? max(0, snowAge ?? time) : time) * weather.speed
         if weather.effect == .aurora {
             aurora(in: ctx, size: size, weather: weather, time: t, colors: colors)
             return
@@ -52,7 +118,7 @@ enum WeatherDrawing {
             let speed = weather.effect == .rain ? 145.0 : weather.effect == .fireflies ? 7 : 28
             let sway = weather.effect == .leaves || weather.effect == .petals ? 17.0 : 6
             func wrap(_ value: Double, _ period: Double) -> Double { value - floor(value / period) * period }
-            var x = wrap(seed * w + weather.wind * t * 47 * depth + sin(t * 0.8 + seed * 100) * sway, w + 20) - 10
+            var x = fallingX(index: i, time: t, width: w, wind: weather.wind, sway: sway)
             var y = wrap(variation(i, 8) * h + t * speed * depth, h + 20) - 10
             if weather.effect == .bats {
                 let direction = i.isMultiple(of: 2) ? 1.0 : -1.0
@@ -97,6 +163,15 @@ enum WeatherDrawing {
                               with: .radialGradient(Gradient(colors: [.white, color.opacity(0.8), .clear]),
                                                     center: .zero, startRadius: 0, endRadius: r))
             case .rain:
+                // Recent impacts spread into short, fading ripples at the desktop edge.
+                let sinceImpact = wrap(variation(i, 8) * h + t * speed * depth - h - 10, h + 20) / (speed * depth)
+                if sinceImpact < 0.45 {
+                    let phase = sinceImpact / 0.45
+                    let hit = fallingX(index: i, time: t - sinceImpact, width: w, wind: weather.wind, sway: sway)
+                    let reach = max(2, radius * 2.3) * (0.2 + phase)
+                    let ring = CGRect(x: hit - reach, y: h - 2 - reach * 0.15, width: reach * 2, height: reach * 0.3)
+                    ctx.stroke(Path(ellipseIn: ring), with: .color(color.opacity((1 - phase) * weather.opacity)), lineWidth: 0.9)
+                }
                 var drop = Path()
                 drop.move(to: .zero); drop.addLine(to: .init(x: -weather.wind * radius, y: -radius * 2.8))
                 particle.stroke(drop, with: .color(color), style: .init(lineWidth: max(0.7, radius * 0.25), lineCap: .round))
@@ -160,6 +235,10 @@ enum WeatherDrawing {
                 particle.stroke(jelly, with: .color(color.opacity(0.72)), lineWidth: 0.027)
             case .fireworks, .ballDrop, .aurora, .meteors: break
             }
+        }
+        if weather.accumulatesSnow {
+            SnowBank(size: size, count: count, weather: weather, time: t, preview: preview)
+                .draw(in: ctx, size: size, tint: Color(rgb: colors.last!), opacity: weather.opacity)
         }
     }
 
@@ -288,6 +367,7 @@ struct ScenePreview: View {
     var focus: Layer? = nil
     @AppStorage("useWallpaperPreview") private var useWallpaper = false
     @State private var wallpaper: NSImage?
+    @State private var snowStarted = ProcessInfo.processInfo.systemUptime
     init(scene: Scene, focus: Layer? = nil) {
         self.scene = scene
         self.focus = focus
@@ -347,7 +427,8 @@ struct ScenePreview: View {
                     ctx.draw(Image(nsImage: wallpaper), in: CGRect(x: (w - dw)/2, y: (h - dh)/2, width: dw, height: dh))
                 }
                 if focus == nil || focus == .desktop {
-                    WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true)
+                    let snowAge = reduceMotion ? 40 : 8 + ProcessInfo.processInfo.systemUptime - snowStarted
+                    WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true, snowAge: snowAge)
                 }
                 if focus == nil || focus == .menu {
                     var strip = ctx
@@ -373,6 +454,7 @@ struct ScenePreview: View {
             }
         }
         .onAppear { loadWallpaper() }
+        .onChange(of: scene.desktop.accumulatesSnow) { _, _ in snowStarted = ProcessInfo.processInfo.systemUptime }
         .onChange(of: useWallpaper) { _, _ in loadWallpaper() }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityLabel("Preview of the current \(focus?.rawValue ?? "seasonal scene") settings")

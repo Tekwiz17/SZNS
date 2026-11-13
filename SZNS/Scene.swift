@@ -69,6 +69,14 @@ struct Weather: Codable, Equatable {
     var effect = Effect.snow
     var density = 0.42, size = 4.0, speed = 1.0, wind = 0.12, repel = 0.45, opacity = 0.8
     var colors = [0xffffff, 0xd0eaff]
+    // An absent choice keeps snow piles available in scenes saved before 1.5.
+    var snowPiles: Bool?
+    var pilesEnabled: Bool {
+        get { snowPiles ?? true }
+        set { snowPiles = newValue ? nil : false }
+    }
+    var hasVisibleEffect: Bool { enabled && density > 0 && opacity > 0 }
+    var accumulatesSnow: Bool { hasVisibleEffect && effect == .snow && pilesEnabled }
 }
 enum Layer: String, CaseIterable, Sendable { case menu = "Menu Bar", dock = "Dock", desktop = "Desktop" }
 
