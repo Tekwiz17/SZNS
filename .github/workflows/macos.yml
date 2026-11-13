@@ -1,4 +1,7 @@
 name: Build SZNS
+concurrency:
+  group: szns-build-${{ github.ref }}
+  cancel-in-progress: true
 on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
@@ -101,28 +104,17 @@ jobs:
           "$RUNNER_TEMP/dock-check" "$pid" reveal
           "$RUNNER_TEMP/dock-check" "$pid" hidden
       - name: Verify timed pause across a real app launch
+        timeout-minutes: 2
         run: |
           app="$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app"
           prefs="$HOME/Library/Application Support/SZNS/Preferences.json"
-          mkdir -p "$(dirname "$prefs")"
-          if [ ! -f "$prefs" ]; then
-            "$app/Contents/MacOS/SZNS" &
-            seed_pid=$!
-            sleep 2
-            swift -e 'import AppKit; guard let app = NSRunningApplication(processIdentifier: Int32(CommandLine.arguments[1])!), app.terminate() else { exit(1) }' "$seed_pid"
-            wait "$seed_pid"
-          fi
-          python3 - "$prefs" <<'PYTHON'
-          import json, pathlib, sys, time
-          p = pathlib.Path(sys.argv[1])
-          data = json.loads(p.read_text())
-          data.update(pausedUntil=time.time()-978307200+15, welcomed=True)
-          p.write_text(json.dumps(data))
-          PYTHON
+          swiftc Tests/LivePauseCheck.swift -o "$RUNNER_TEMP/pause-check"
+          swiftc -parse-as-library SZNS/Scene.swift Tests/SeedPausedScene.swift -o "$RUNNER_TEMP/seed-pause"
+          "$RUNNER_TEMP/seed-pause" "$prefs"
           "$app/Contents/MacOS/SZNS" &
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
-          swift Tests/LivePauseCheck.swift "$pid"
+          "$RUNNER_TEMP/pause-check" "$pid"
       - uses: actions/upload-artifact@v4
         with:
           name: SZNS-macOS
