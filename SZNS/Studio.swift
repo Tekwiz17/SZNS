@@ -31,9 +31,10 @@ final class Studio: ObservableObject {
     @Published var message: String?
     private var pendingSave: DispatchWorkItem?
     private let url: URL
-    private init() {
-        url = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("SZNS/Preferences.json")
+    private var needsRecoveryCopy = false
+    init(url: URL = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("SZNS/Preferences.json")) {
+        self.url = url
         prefs = Preferences()
         if FileManager.default.fileExists(atPath: url.path) {
             do {
@@ -43,7 +44,10 @@ final class Studio: ObservableObject {
                 prefs = stored
                 if upgraded || resized { save() }
             }
-            catch { message = "Couldn’t read saved settings. \(error.localizedDescription)" }
+            catch {
+                needsRecoveryCopy = true
+                message = "Couldn’t read saved settings. SZNS will keep a recovery copy before saving new settings. \(error.localizedDescription)"
+            }
         }
     }
     private func queueSave() {
@@ -56,6 +60,11 @@ final class Studio: ObservableObject {
         pendingSave?.cancel()
         do {
             try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if needsRecoveryCopy {
+                let backup = url.deletingLastPathComponent().appendingPathComponent("Preferences-recovery-\(UUID().uuidString).json")
+                try FileManager.default.copyItem(at: url, to: backup)
+                needsRecoveryCopy = false
+            }
             try JSONEncoder().encode(prefs).write(to: url, options: .atomic)
         } catch { message = "Couldn’t save settings. \(error.localizedDescription)" }
     }

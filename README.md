@@ -29,10 +29,14 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 | Settings | What you can change |
 | --- | --- |
 | General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving, wallpaper previews and Accessibility access. Check for new releases or replay the guide. |
-| Presets | Apply one of 16 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
+| Presets | Apply one of 19 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
 | Menu Bar | Choose placement above apps or on the desktop. Edit bulb design, spacing, size, density, pattern, speed, variation, opacity and pointer behavior. Adjust the wire color, thickness, span and sag. |
 | Dock | Independently configure the same settings for the Dock. Its strand follows the Dock’s visible bounds and orientation. |
-| Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti or a repeating midnight ball drop. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+| Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti, a repeating midnight ball drop, aurora curtains, a meteor shower or drifting jellyfish. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+
+### Find your next scene
+
+Open **Settings → Presets** and search by name, bulb or desktop effect. For example, type **jellyfish** to find Moonlit Reef. Click the eye to preview a scene, then choose **Apply Scene** or **Close**. Star a scene to pin it to the top of the menu bar’s **Apply Scene** menu. Favorites persist after quitting.
 
 ### Celebrations
 
@@ -40,6 +44,9 @@ Every scene below also ships as a named color palette.
 
 | Scene | Menu bar and Dock bulbs | Desktop |
 | --- | --- | --- |
+| Northern Lights | Crystal prisms and icicles | Slow curtains of mint, blue and violet light |
+| Perseid Night | Ringed planets and stars | A star field with passing meteors |
+| Moonlit Reef | Jellyfish and seashells | Translucent jellyfish float upward |
 | Candy Cane | Striped canes and peppermint diodes | Soft snow |
 | Christmas Bulbs | Classic multicolor bulbs on both strands | Warm-white snow |
 | Christmas Red & Green | Pine trees and classic bulbs | Snow |

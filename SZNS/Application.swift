@@ -107,12 +107,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
             menu.addItem(.separator())
             let presets = NSMenuItem(title: "Apply Scene", action: nil, keyEquivalent: "")
             let choices = NSMenu(title: "Apply Scene")
-            for look in studio.prefs.looks {
-                let choice = command(look.name, #selector(applyScene(_:)))
-                choice.representedObject = look.id
-                choice.state = studio.prefs.scene == look.scene ? .on : .off
-                choices.addItem(choice)
+            let favorites = studio.prefs.looks.filter { $0.favorite == true }
+            func addChoices(_ looks: [Look]) {
+                for look in looks {
+                    let choice = command(look.name, #selector(applyScene(_:)))
+                    choice.representedObject = look.id
+                    choice.state = studio.prefs.scene == look.scene ? .on : .off
+                    choices.addItem(choice)
+                }
             }
+            if !favorites.isEmpty {
+                choices.addItem(.sectionHeader(title: "Favorites"))
+                addChoices(favorites)
+            }
+            let otherLooks = studio.prefs.looks.filter { $0.favorite != true }
+            if !favorites.isEmpty && !otherLooks.isEmpty { choices.addItem(.sectionHeader(title: "Other scenes")) }
+            addChoices(otherLooks)
             presets.submenu = choices
             menu.addItem(presets)
         }

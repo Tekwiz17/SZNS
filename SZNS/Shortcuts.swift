@@ -61,6 +61,7 @@ struct ApplySceneIntent: AppIntent {
 extension Effect: AppEnum {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Desktop Effect"
     static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .aurora: "Aurora Curtains", .meteors: "Meteor Shower", .tide: "Drifting Jellyfish",
         .snow: "Snow", .leaves: "Leaves", .petals: "Petals", .fireflies: "Fireflies", .fireworks: "Fireworks", .rain: "Rain",
         .ballDrop: "Midnight Ball Drop", .bats: "Flying Bats", .ghosts: "Floating Ghosts", .confetti: "Confetti"
     ]
@@ -170,6 +171,7 @@ extension Bulb: AppEnum {
     static var typeDisplayRepresentation: TypeDisplayRepresentation = "Bulb Design"
     static var caseDisplayRepresentations: [Self: DisplayRepresentation] = [
         .graduationCap: "Graduation Cap", .easterEgg: "Painted Easter Egg", .candyCane: "Candy Cane",
+        .prism: "Crystal Prism", .saturn: "Ringed Planet", .jelly: "Jellyfish",
         .oval: "Classic (OG)", .globe: "Globe", .diode: "Diode", .icicle: "Icicle", .heart: "Heart",
         .star: "Star", .snowflake: "Snowflake", .moon: "Moon", .bat: "Bat", .ghost: "Ghost",
         .pumpkin: "Pumpkin", .clover: "Clover", .egg: "Egg", .leaf: "Leaf", .champagne: "Champagne",

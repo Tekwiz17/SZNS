@@ -11,11 +11,12 @@ private struct Swatches: View {
     }
 }
 private enum PresetSheet: Identifiable {
-    case newScene, renameScene(Look), editPalette(Palette), newPalette
+    case newScene, renameScene(Look), preview(Look), editPalette(Palette), newPalette
     var id: String {
         switch self {
         case .newScene: return "new scene"
         case .newPalette: return "new palette"
+        case .preview(let p): return "preview-" + p.id.uuidString
         case .renameScene(let p): return p.id.uuidString
         case .editPalette(let p): return p.id.uuidString
         }
@@ -26,11 +27,48 @@ struct PresetSettings: View {
     @State private var sheet: PresetSheet?
     @State private var removing: UUID?
     @State private var overwrite: UUID?
+    @State private var query = ""
+    @State private var favoritesOnly = false
+
+    private var visibleLooks: [Look] {
+        studio.prefs.looks.filter { $0.matches(query) && (!favoritesOnly || $0.favorite == true) }
+    }
+    private var visiblePalettes: [Palette] {
+        studio.prefs.palettes.filter { p in
+            query.split(whereSeparator: { $0.isWhitespace }).allSatisfy { p.name.localizedCaseInsensitiveContains(String($0)) }
+        }
+    }
+
     var body: some View {
         Form {
             Section {
-                ForEach(studio.prefs.looks) { look in
+                HStack {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField("Search scenes, bulbs, effects or palettes", text: $query).textFieldStyle(.plain)
+                    if !query.isEmpty {
+                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                            .buttonStyle(.borderless).accessibilityLabel("Clear search")
+                    }
+                }
+                Toggle("Favorite scenes only", isOn: $favoritesOnly)
+            }
+            Section {
+                if visibleLooks.isEmpty {
+                    Text(favoritesOnly && query.isEmpty ? "Star a scene to find it here." : "No matching scenes.")
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(visibleLooks) { look in
                     HStack {
+                        Button {
+                            if let i = studio.prefs.looks.firstIndex(where: { $0.id == look.id }) {
+                                studio.prefs.looks[i].favorite = look.favorite != true
+                            }
+                        } label: {
+                            Image(systemName: look.favorite == true ? "star.fill" : "star")
+                                .foregroundStyle(look.favorite == true ? Color.accentColor : .secondary)
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(look.favorite == true ? "Unfavorite " + look.name : "Favorite " + look.name)
                         VStack(alignment: .leading, spacing: 3) {
                             Text(look.name)
                             Text("\(look.scene.menu.bulb.displayName) · \(look.scene.desktop.effect.rawValue)")
@@ -38,6 +76,8 @@ struct PresetSettings: View {
                         }
                         Spacer()
                         Swatches(colors: look.scene.menu.colors)
+                        Button { sheet = .preview(look) } label: { Image(systemName: "eye") }
+                            .buttonStyle(.borderless).help("Preview " + look.name).accessibilityLabel("Preview " + look.name)
                         Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
                             .disabled(studio.prefs.scene == look.scene)
                         Menu {
@@ -54,7 +94,7 @@ struct PresetSettings: View {
                 Text("A scene saves the Dock, menu bar and desktop together. After adjusting a scene, use its menu to save your changes.")
             }
             Section("Color palettes") {
-                ForEach(studio.prefs.palettes) { p in
+                ForEach(visiblePalettes) { p in
                     HStack {
                         Text(p.name); Spacer(); Swatches(colors: p.colors)
                         Menu("Apply to") {
@@ -69,6 +109,7 @@ struct PresetSettings: View {
                         } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + p.name)
                     }
                 }
+                if visiblePalettes.isEmpty && !query.isEmpty { Text("No matching palettes.").foregroundStyle(.secondary) }
                 HStack {
                     Button { sheet = .newPalette } label: { Label("New palette…", systemImage: "plus") }
                     Spacer()
@@ -78,6 +119,19 @@ struct PresetSettings: View {
         }.formStyle(.grouped)
         .sheet(item: $sheet) { item in
             switch item {
+            case .preview(let look):
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(look.name).font(.title2.weight(.semibold))
+                    ScenePreview(scene: look.scene).frame(height: 205)
+                    LabeledContent("Menu bar", value: look.scene.menu.enabled ? look.scene.menu.bulb.displayName : "Off")
+                    LabeledContent("Dock", value: look.scene.dock.enabled ? look.scene.dock.bulb.displayName : "Off")
+                    LabeledContent("Desktop", value: look.scene.desktop.enabled ? look.scene.desktop.effect.rawValue : "Off")
+                    HStack {
+                        Spacer()
+                        Button("Close") { sheet = nil }.keyboardShortcut(.cancelAction)
+                        Button("Apply Scene") { studio.prefs.scene = look.scene; sheet = nil }.keyboardShortcut(.defaultAction)
+                    }
+                }.padding(22).frame(width: 460)
             case .newScene:
                 NameSheet(title: "Save current scene", initial: "My Scene") { studio.prefs.looks.append(.init(name: $0, scene: studio.prefs.scene)) }
             case .renameScene(let look):

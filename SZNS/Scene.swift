@@ -1,6 +1,7 @@
 import Foundation
 
 enum Bulb: String, CaseIterable, Codable, Sendable {
+    case prism = "Crystal Prism", saturn = "Ringed Planet", jelly = "Jellyfish"
     case oval = "Classic", globe = "Globe", diode = "Diode", icicle = "Icicle"
     case heart = "Heart", star = "Star", snowflake = "Snowflake", moon = "Moon"
     case bat = "Bat", ghost = "Ghost", pumpkin = "Pumpkin", clover = "Clover"
@@ -15,6 +16,7 @@ enum Pattern: String, CaseIterable, Codable, Sendable {
     case chase = "Chase", wave = "Wave", every = "Every Nth"
 }
 enum Effect: String, CaseIterable, Codable, Sendable {
+    case aurora = "Aurora Curtains", meteors = "Meteor Shower", tide = "Drifting Jellyfish"
     case ballDrop = "Midnight Ball Drop", bats = "Flying Bats", ghosts = "Floating Ghosts", confetti = "Confetti"
     case snow = "Snow", leaves = "Leaves", petals = "Petals", fireflies = "Fireflies", fireworks = "Fireworks", rain = "Rain"
 }
@@ -73,6 +75,14 @@ struct Look: Identifiable, Codable, Equatable {
     var id = UUID()
     var name: String
     var scene: Scene
+    var favorite: Bool?
+
+    func matches(_ query: String) -> Bool {
+        let fields = [name, scene.menu.bulb.displayName, scene.dock.bulb.displayName, scene.desktop.effect.rawValue]
+        return query.split(whereSeparator: { $0.isWhitespace }).allSatisfy { word in
+            fields.contains { $0.localizedCaseInsensitiveContains(String(word)) }
+        }
+    }
 }
 struct Palette: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -119,6 +129,15 @@ struct Celebration {
     var particles: [Int]? = nil
     var speed = 1.0
     var size = 5.0
+
+    static let nightScenes: [Celebration] = [
+        .init(name: "Northern Lights", colors: [0x72edbe, 0x72cbe8, 0xbba7ff], menu: .prism, dock: .icicle,
+              pattern: .wave, effect: .aurora, speed: 0.6, size: 9),
+        .init(name: "Perseid Night", colors: [0xffdb9c, 0xaacbff, 0xe8e6ff], menu: .saturn, dock: .star,
+              pattern: .twinkle, effect: .meteors, speed: 0.8, size: 4),
+        .init(name: "Moonlit Reef", colors: [0x84ebda, 0xd9afff, 0xffb6d0], menu: .jelly, dock: .shell,
+              pattern: .pulse, effect: .tide, speed: 0.65, size: 9)
+    ]
 
     static let collection: [Celebration] = [
         .init(name: "Candy Cane", colors: [0xd92036, 0xfff7e9], menu: .candyCane, dock: .diode,
@@ -207,15 +226,17 @@ struct Preferences: Codable, Equatable {
 
     @discardableResult
     mutating func installCelebrationsIfNeeded() -> Bool {
-        guard (celebrationRevision ?? 0) < 1 else { return false }
-        for item in Celebration.collection {
+        let revision = celebrationRevision ?? 0
+        guard revision < 2 else { return false }
+        let additions = (revision < 1 ? Celebration.collection : []) + Celebration.nightScenes
+        for item in additions {
             // Keep a user-created preset with the same name independently selectable.
             let lookName = looks.contains { $0.name == item.name } ? item.name + " (SZNS)" : item.name
             let paletteName = palettes.contains { $0.name == item.name } ? item.name + " (SZNS)" : item.name
             looks.append(Look(name: lookName, scene: item.scene))
             palettes.append(Palette(name: paletteName, colors: item.colors))
         }
-        celebrationRevision = 1
+        celebrationRevision = 2
         return true
     }
 }

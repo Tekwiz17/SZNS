@@ -93,6 +93,10 @@ enum LightDrawing {
                 bulb.fill(shape, with: .linearGradient(Gradient(colors: [color, color, color.opacity(0.62)]),
                                                         startPoint: CGPoint(x: -0.35, y: -0.4),
                                                         endPoint: CGPoint(x: 0.4, y: 0.5)))
+                if lights.bulb == .prism {
+                    let facet = polygon([(0,-0.54),(0.19,-0.17),(0,0.55),(-0.08,-0.18)])
+                    bulb.fill(facet, with: .color(.white.opacity(0.46)))
+                }
                 if lights.bulb == .candyCane || lights.bulb == .easterEgg {
                     var paint = bulb
                     paint.clip(to: shape)
@@ -150,6 +154,28 @@ enum LightDrawing {
             Path(ellipseIn: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
         }
         switch kind {
+        case .prism:
+            return polygon([(0,-0.54),(0.36,-0.20),(0.30,0.21),(0,0.55),(-0.30,0.21),(-0.36,-0.20)])
+        case .saturn:
+            var planet = oval(0.77, 0.77)
+            let ring = Path(ellipseIn: CGRect(x: -0.62, y: -0.15, width: 1.24, height: 0.30))
+            planet.addPath(ring.strokedPath(.init(lineWidth: 0.09)), transform: .init(rotationAngle: -0.38))
+            return planet
+        case .jelly:
+            var bell = Path()
+            bell.move(to: CGPoint(x: -0.46, y: 0.03))
+            bell.addCurve(to: CGPoint(x: 0.46, y: 0.03), control1: CGPoint(x: -0.46, y: -0.65),
+                          control2: CGPoint(x: 0.46, y: -0.65))
+            bell.addQuadCurve(to: CGPoint(x: -0.46, y: 0.03), control: CGPoint(x: 0, y: 0.22))
+            bell.closeSubpath()
+            var arms = Path()
+            for x in [-0.26, 0.0, 0.26] {
+                arms.move(to: CGPoint(x: x, y: 0.06))
+                arms.addCurve(to: CGPoint(x: x - 0.03, y: x == 0 ? 0.55 : 0.40),
+                              control1: CGPoint(x: x - 0.16, y: 0.24), control2: CGPoint(x: x + 0.12, y: 0.32))
+            }
+            bell.addPath(arms.strokedPath(.init(lineWidth: 0.075, lineCap: .round)))
+            return bell
         case .globe: return oval(0.95, 0.95)
         case .oval, .custom: return oval(0.69, 1)
         case .graduationCap:

@@ -20,10 +20,30 @@ enum RenderChecks {
         return pixels
     }
 
-    static func main() {
+    static func checkPreferenceRecovery() throws {
+        let fm = FileManager.default
+        let dir = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? fm.removeItem(at: dir) }
+        let url = dir.appendingPathComponent("Preferences.json")
+        let damaged = Data("{ incomplete settings".utf8)
+        try damaged.write(to: url)
+        let studio = Studio(url: url)
+        precondition(studio.message != nil)
+        studio.save()
+        studio.save()
+        let copies = try fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil).filter { $0 != url }
+        let preserved = try Data(contentsOf: copies[0])
+        let saved = try JSONDecoder().decode(Preferences.self, from: Data(contentsOf: url))
+        precondition(copies.count == 1 && preserved == damaged && saved == studio.prefs)
+        print("PASS original unreadable preferences preserved across repeated saves")
+    }
+
+    static func main() throws {
         _ = NSApplication.shared
+        try checkPreferenceRecovery()
         var firstFrames = Set<Data>()
-        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti] {
+        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide] {
             var weather = Weather()
             weather.effect = effect
             weather.size = 8
@@ -32,11 +52,19 @@ enum RenderChecks {
                     WeatherDrawing.draw(in: ctx, size: size, weather: weather, time: time, preview: true)
                 }
             }
+            let still = frame(0)
+            precondition(still.contains { $0 != 0 } && still == frame(0), "Empty or unstable Reduce Motion frame")
             let first = frame(2), later = frame(10)
             precondition(first.contains { $0 != 0 } && later.contains { $0 != 0 }, "Empty \(effect.rawValue) frame")
             precondition(first != later && firstFrames.insert(first).inserted, "Missing motion or duplicate effect")
             print("PASS rendered two distinct \(effect.rawValue) frames")
         }
+        var sparseSnow = Weather()
+        sparseSnow.density = 0.05
+        let sparse = pixels { ctx, size in
+            WeatherDrawing.draw(in: ctx, size: size, weather: sparseSnow, time: 1)
+        }
+        precondition(sparse.contains { $0 != 0 }, "Low-density weather disappeared")
         func strand(_ design: Bulb, density: Double = 1) -> Data {
             var lights = Lights()
             lights.bulb = design
@@ -47,7 +75,7 @@ enum RenderChecks {
         }
         let cable = strand(.oval, density: 0)
         var bulbs = Set<Data>()
-        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval] {
+        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval, .prism, .saturn, .jelly] {
             let image = strand(design)
             precondition(image != cable && bulbs.insert(image).inserted, "Missing or duplicate \(design.rawValue) design")
             print("PASS rendered distinct \(design.rawValue) strand")

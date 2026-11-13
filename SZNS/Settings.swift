@@ -178,17 +178,17 @@ struct DesktopSettings: View {
                 EnumRow(title: "Effect", value: $studio.prefs.scene.desktop.effect)
                 LabeledContent("Placement", value: "Desktop only")
             }
-            Section("Particles") {
+            Section(studio.prefs.scene.desktop.effect == .aurora ? "Curtains" : "Particles") {
                 NumberRow(label: "Amount", value: $studio.prefs.scene.desktop.density, range: 0...1, step: 0.05, percent: true)
                 NumberRow(label: "Size", value: $studio.prefs.scene.desktop.size, range: 1...16, unit: " pt", step: 0.5)
                 NumberRow(label: "Speed", value: $studio.prefs.scene.desktop.speed, range: 0.1...3, unit: "×", step: 0.1)
                 NumberRow(label: "Opacity", value: $studio.prefs.scene.desktop.opacity, range: 0.05...1, step: 0.05, percent: true)
                 NumberRow(label: "Wind (left to right)", value: $studio.prefs.scene.desktop.wind, range: -1...1, step: 0.05, percent: true)
-                if ![Effect.fireworks, .ballDrop].contains(studio.prefs.scene.desktop.effect) {
+                if ![Effect.fireworks, .ballDrop, .aurora, .meteors].contains(studio.prefs.scene.desktop.effect) {
                     NumberRow(label: "Pointer repulsion", value: $studio.prefs.scene.desktop.repel, range: 0...1, step: 0.05, percent: true)
                 }
             }
-            Section("Particle color") { PaletteEditor(colors: $studio.prefs.scene.desktop.colors, studio: studio) }
+            Section("Effect colors") { PaletteEditor(colors: $studio.prefs.scene.desktop.colors, studio: studio) }
         }.formStyle(.grouped)
     }
 }

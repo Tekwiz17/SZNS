@@ -6,8 +6,16 @@ enum WeatherDrawing {
         guard weather.enabled, weather.density > 0, size.width > 0, size.height > 0 else { return }
         let w = size.width, h = size.height
         let colors = weather.colors.isEmpty ? [0xffffff] : weather.colors
-        let count = Int(min(700, max(1, w * h / (preview ? 800 : 4700)) * weather.density))
+        let count = max(1, Int(min(700, w * h / (preview ? 800 : 4700) * weather.density)))
         let t = time * weather.speed
+        if weather.effect == .aurora {
+            aurora(in: ctx, size: size, weather: weather, time: t, colors: colors)
+            return
+        }
+        if weather.effect == .meteors {
+            meteorShower(in: ctx, size: size, weather: weather, time: t, colors: colors)
+            return
+        }
         if weather.effect == .fireworks {
             for i in 0..<max(1, count / 15) {
                 let age = t * 0.34 + variation(i, 43)
@@ -36,7 +44,7 @@ enum WeatherDrawing {
             drawBallDrop(in: ctx, size: size, weather: weather, time: t, colors: colors)
             return
         }
-        let flying = weather.effect == .bats || weather.effect == .ghosts
+        let flying = [.bats, .ghosts, .tide].contains(weather.effect)
         let number = flying ? max(1, count / 5) : count
         for i in 0..<number {
             let seed = variation(i, 4)
@@ -50,7 +58,7 @@ enum WeatherDrawing {
                 let direction = i.isMultiple(of: 2) ? 1.0 : -1.0
                 x = wrap(seed * w + t * (direction * 52 * depth + weather.wind * 30), w + 48) - 24
                 y = variation(i, 8) * h + sin(t * 1.5 + seed * 18) * 10 * depth + sin(t * 0.37 + seed * 51) * 17
-            } else if weather.effect == .ghosts {
+            } else if weather.effect == .ghosts || weather.effect == .tide {
                 y = wrap(variation(i, 8) * h - t * 19 * depth, h + 40) - 20
                 x = wrap(seed * w + weather.wind * t * 20 + sin(t * 0.74 + seed * 30) * 16, w + 32) - 16
             }
@@ -108,8 +116,89 @@ enum WeatherDrawing {
                     particle.fill(Path(ellipseIn: CGRect(x: eye, y: -0.14, width: 0.095, height: 0.16)),
                                   with: .color(Color(rgb: 0x302842)))
                 }
-            case .fireworks, .ballDrop: break
+            case .tide:
+                let pulse = sin(t * 1.8 + seed * 22)
+                let length = radius * 3.5
+                particle.rotate(by: .degrees(sin(t * 0.5 + seed * 18) * 14))
+                particle.scaleBy(x: length * (1 - 0.10 * pulse), y: length * (1 + 0.13 * pulse))
+                let jelly = LightDrawing.silhouette(.jelly)
+                particle.fill(jelly, with: .linearGradient(Gradient(colors: [color.opacity(0.35), color, color.opacity(0.55)]),
+                                                           startPoint: .init(x: 0, y: -0.5), endPoint: .init(x: 0, y: 0.5)))
+                particle.stroke(jelly, with: .color(color.opacity(0.72)), lineWidth: 0.027)
+            case .fireworks, .ballDrop, .aurora, .meteors: break
             }
+        }
+    }
+
+    private static func aurora(in ctx: GraphicsContext, size: CGSize, weather: Weather, time: Double, colors: [Int]) {
+        let layers = 1 + Int(weather.density * 4)
+        let height = size.height
+        let drift = time * (0.08 + weather.wind * 0.12)
+        for band in 0..<layers {
+            let offset = Double(band) * 1.38
+            let tint = Color(rgb: colors[band % colors.count])
+            let baseline = height * (0.28 + Double(band) * 0.045)
+            let reach = height * (0.09 + weather.size * 0.009)
+            var ribbon = Path()
+            var top = [CGPoint]()
+            for step in 0...64 {
+                let u = Double(step) / 64
+                let fold = sin(u * 7.8 + drift + offset) + 0.38 * sin(u * 13 - time * 0.12 + offset)
+                let lower = CGPoint(x: u * size.width, y: baseline + fold * height * 0.064)
+                if step == 0 { ribbon.move(to: lower) } else { ribbon.addLine(to: lower) }
+                top.append(CGPoint(x: lower.x, y: lower.y - reach * (0.75 + 0.25 * sin(u * 18 + offset + drift))))
+            }
+            for point in top.reversed() { ribbon.addLine(to: point) }
+            ribbon.closeSubpath()
+            // Each vertical column fades up from its own fold in the curtain.
+            var clipped = ctx
+            clipped.clip(to: ribbon)
+            let stripe = size.width / 64
+            for step in 0..<64 {
+                let upper = top[step]
+                let u = Double(step) / 64
+                let depth = reach * (0.75 + 0.25 * sin(u * 18 + offset + drift))
+                let lowerY = upper.y + depth
+                let glow = weather.opacity * (0.23 + 0.10 * cos(u * 35 + offset))
+                let gradient = Gradient(stops: [.init(color: .clear, location: 0),
+                    .init(color: tint.opacity(glow * 0.6), location: 0.58),
+                    .init(color: tint.opacity(glow), location: 0.88), .init(color: .clear, location: 1)])
+                clipped.fill(Path(CGRect(x: upper.x, y: 0, width: stripe + 0.25, height: height)),
+                             with: .linearGradient(gradient, startPoint: upper, endPoint: CGPoint(x: upper.x, y: lowerY)))
+            }
+        }
+    }
+
+    private static func meteorShower(in ctx: GraphicsContext, size: CGSize, weather: Weather, time: Double, colors: [Int]) {
+        let width = size.width, height = size.height
+        let sky = min(width, height)
+        // The faint star field stays visible between shooting stars and under Reduce Motion.
+        for i in 0..<Int(6 + 48 * weather.density) {
+            let r = (0.5 + variation(i, 3)) * (0.7 + weather.size * 0.09)
+            let star = CGRect(x: variation(i, 18) * width, y: variation(i, 13) * height, width: 2*r, height: 2*r)
+            ctx.fill(Path(ellipseIn: star), with: .color(Color(rgb: colors[i % colors.count]).opacity(weather.opacity * 0.46)))
+        }
+        for i in 0..<(1 + Int(weather.density * 5)) {
+            let cycle = time * 0.25 + Double(i) * 0.37 + 0.17
+            let phase = cycle - floor(cycle)
+            guard phase < 0.48 else { continue }
+            let u = phase / 0.48
+            let seed = Int(floor(cycle)) * 7 + i
+            let run = sky * (0.22 + weather.wind * 0.23)
+            let fall = sky * 0.23
+            let end = CGPoint(x: width * (0.12 + 0.62 * variation(seed, 9)) + run * u,
+                              y: height * (0.08 + 0.54 * variation(seed, 16)) + fall * u)
+            let tail = CGPoint(x: end.x - run * 0.32, y: end.y - fall * 0.32)
+            let color = Color(rgb: colors[i % colors.count])
+            var stream = Path()
+            stream.move(to: tail)
+            stream.addLine(to: end)
+            var ray = ctx
+            ray.opacity = weather.opacity * sin(.pi * u)
+            ray.stroke(stream, with: .linearGradient(Gradient(colors: [.clear, color]), startPoint: tail, endPoint: end),
+                       style: .init(lineWidth: max(0.8, weather.size * 0.42), lineCap: .round))
+            let dot = weather.size * 0.62
+            ray.fill(Path(ellipseIn: .init(x: end.x-dot/2, y: end.y-dot/2, width: dot, height: dot)), with: .color(.white))
         }
     }
 
@@ -195,6 +284,8 @@ struct ScenePreview: View {
                 let area = CGRect(origin: .zero, size: size)
                 let sky: [Color] = {
                     switch scene.desktop.effect {
+                    case .aurora, .meteors: return [Color(rgb: 0x10182e), Color(rgb: 0x354961)]
+                    case .tide: return [Color(rgb: 0x123d50), Color(rgb: 0x142634)]
                     case .petals: return [Color(rgb: 0x504668), Color(rgb: 0xd09699)]
                     case .leaves: return [Color(rgb: 0x413943), Color(rgb: 0xd49562)]
                     case .fireflies: return [Color(rgb: 0x193f4c), Color(rgb: 0x799285)]
@@ -243,7 +334,7 @@ struct ScenePreview: View {
                     }
                     var string = ctx
                     string.translateBy(x: x, y: y)
-                    LightDrawing.draw(in: string, size: .init(width: dockWidth, height: dockHeight), lights: scene.dock, time: t)
+                    LightDrawing.draw(in: string, size: .init(width: dockWidth, height: dockHeight), lights: scene.dock.fittingDock(depth: dockHeight), time: t)
                 }
             }
         }

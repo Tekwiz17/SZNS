@@ -15,11 +15,24 @@ try check("Every preference round-trips", try JSONDecoder().decode(Preferences.s
 check("Original four seasonal scenes remain available", Season.allCases.allSatisfy { season in
     original.looks.contains { $0.name == season.rawValue && $0.scene == season.scene }
 })
-check("Every celebration has its matching full scene and palette", Celebration.collection.allSatisfy { item in
+check("Every celebration has its matching full scene and palette", (Celebration.collection + Celebration.nightScenes).allSatisfy { item in
     original.looks.contains { $0.name == item.name && $0.scene == item.scene } &&
     original.palettes.contains { $0.name == item.name && $0.colors == item.colors }
 })
-check("The full catalog has unique names", original.looks.count == 16 && Set(original.looks.map(\.name)).count == 16)
+check("The full catalog has unique names", original.looks.count == 19 && Set(original.looks.map(\.name)).count == 19)
+let reef = original.looks.first { $0.name == "Moonlit Reef" }!
+check("Search by words across name, effect and bulbs", reef.matches("REEF jellyfish shell") && !reef.matches("reef prism"))
+var versionOne = original
+versionOne.looks = [Look(name: "My saved scene", scene: original.scene, favorite: true)]
+versionOne.palettes = []
+var v1JSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(versionOne)) as! [String: Any]
+v1JSON["celebrationRevision"] = 1
+var nextVersion = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
+check("1.1 upgrade adds exactly three scenes and palettes", nextVersion.installCelebrationsIfNeeded() &&
+      nextVersion.looks.count == 4 && nextVersion.palettes.count == 3)
+check("Existing active scene, favorite and IDs survive", nextVersion.scene == versionOne.scene && nextVersion.looks.first == versionOne.looks.first)
+nextVersion.looks.removeLast()
+check("Deleted night scenes stay deleted", !nextVersion.installCelebrationsIfNeeded() && nextVersion.looks.count == 3)
 let partyEffects: [String: Effect] = ["4th of July": .fireworks, "Midnight Countdown": .ballDrop,
                                       "Halloween Black & Orange": .bats, "Halloween Witch": .ghosts, "Tassel Toss": .confetti]
 check("Celebrations use their corresponding desktop effects", partyEffects.allSatisfy { name, effect in
