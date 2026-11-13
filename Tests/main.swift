@@ -20,6 +20,21 @@ snowfall.effect = .rain
 check("Rain cannot show snow piles", !snowfall.accumulatesSnow)
 snowfall.density = 0
 check("Zero particle amount requires no desktop overlay", !snowfall.hasVisibleEffect)
+var autumn = Weather()
+autumn.effect = .leaves
+check("Legacy leaf scenes gather leaves without Halloween decorations", autumn.leafPilesEnabled && !autumn.pumpkinsEnabled)
+autumn.pumpkinsEnabled = true
+autumn.leafPilesEnabled = false
+autumn.effect = .bats
+check("Bats include jack-o’-lanterns by default", autumn.pumpkinsEnabled)
+autumn.pumpkinsEnabled = false
+autumn.effect = .ghosts
+check("Halloween effects have independent pumpkin choices", autumn.pumpkinsEnabled)
+autumn.effect = .leaves
+let restoredAutumn = try JSONDecoder().decode(Weather.self, from: JSONEncoder().encode(autumn))
+check("Autumn preferences survive relaunch", restoredAutumn.pumpkinsEnabled && !restoredAutumn.leafPilesEnabled)
+autumn.effect = .rain
+check("Other weather stays free of pumpkins", !autumn.pumpkinsEnabled)
 let original = Preferences()
 let data = try JSONEncoder().encode(original)
 try check("Every preference round-trips", try JSONDecoder().decode(Preferences.self, from: data) == original)

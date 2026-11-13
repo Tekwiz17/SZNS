@@ -118,6 +118,11 @@ jobs:
           pid=$!
           trap 'kill "$pid" 2>/dev/null || true' EXIT
           "$RUNNER_TEMP/pause-check" "$pid"
+      - name: Verify autumn decorations stay behind app windows
+        timeout-minutes: 2
+        run: |
+          swiftc -parse-as-library SZNS/Scene.swift Tests/LiveDesktopCheck.swift -o "$RUNNER_TEMP/desktop-check"
+          "$RUNNER_TEMP/desktop-check" "$RUNNER_TEMP/SZNSBuild/Build/Products/Release/SZNS.app/Contents/MacOS/SZNS"
       - uses: actions/upload-artifact@v4
         with:
           name: SZNS-macOS

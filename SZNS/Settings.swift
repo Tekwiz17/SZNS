@@ -180,6 +180,11 @@ struct DesktopSettings: View {
                 NumberRow(label: "Amount", value: $studio.prefs.scene.desktop.density, range: 0...1, step: 0.05, percent: true)
                 if studio.prefs.scene.desktop.effect == .snow {
                     Toggle("Let snow pile up", isOn: $studio.prefs.scene.desktop.pilesEnabled)
+                } else if studio.prefs.scene.desktop.effect == .leaves {
+                    Toggle("Let leaves gather", isOn: $studio.prefs.scene.desktop.leafPilesEnabled)
+                }
+                if studio.prefs.scene.desktop.supportsPumpkins {
+                    Toggle("Jack-o’-lanterns", isOn: $studio.prefs.scene.desktop.pumpkinsEnabled)
                 }
             }
             Section {

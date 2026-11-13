@@ -68,12 +68,12 @@ enum WeatherDrawing {
     }
 
     static func draw(in ctx: GraphicsContext, size: CGSize, weather: Weather, time: Double,
-                     pointer: CGPoint? = nil, preview: Bool = false, snowAge: Double? = nil) {
+                     pointer: CGPoint? = nil, preview: Bool = false, effectAge: Double? = nil) {
         guard weather.hasVisibleEffect, size.width > 0, size.height > 0 else { return }
         let w = Double(size.width), h = Double(size.height)
         let colors = weather.colors.isEmpty ? [0xffffff] : weather.colors
         let count = max(1, Int(min(700, w * h / (preview ? 800 : 4700) * weather.density)))
-        let t = (weather.accumulatesSnow ? max(0, snowAge ?? time) : time) * weather.speed
+        let t = ([Effect.snow, .leaves].contains(weather.effect) ? max(0, effectAge ?? time) : time) * weather.speed
         if weather.effect == .aurora {
             aurora(in: ctx, size: size, weather: weather, time: t, colors: colors)
             return
@@ -236,9 +236,99 @@ enum WeatherDrawing {
             case .fireworks, .ballDrop, .aurora, .meteors: break
             }
         }
+        if weather.effect == .leaves && weather.leafPilesEnabled {
+            drawSettledLeaves(in: ctx, size: size, weather: weather, time: t, count: count, colors: colors, preview: preview)
+        }
+        if weather.pumpkinsEnabled {
+            drawPumpkins(in: ctx, size: size, weather: weather, time: t, preview: preview)
+        }
         if weather.accumulatesSnow {
             SnowBank(size: size, count: count, weather: weather, time: t, preview: preview)
                 .draw(in: ctx, size: size, tint: Color(rgb: colors.last!), opacity: weather.opacity)
+        }
+    }
+
+    private static func drawSettledLeaves(in ctx: GraphicsContext, size: CGSize, weather: Weather,
+                                          time: Double, count: Int, colors: [Int], preview: Bool) {
+        let w = Double(size.width), h = Double(size.height)
+        let bins = max(6, min(100, Int(w / (preview ? 14 : 28))))
+        var heights = Array(repeating: 0.0, count: bins)
+        let cap = min(h * 0.07, 36)
+        let leaf = LightDrawing.silhouette(.leaf)
+        // Track the most recent landing from each sampled trajectory. The work
+        // per frame stays bounded even after the app has run for days.
+        let stride = max(1, (count + 179) / 180)
+        for i in Swift.stride(from: 0, to: count, by: stride) {
+            let depth = 0.45 + 0.78 * variation(i, 5)
+            let fall = 28 * depth
+            let first = (h + 10 - variation(i, 8) * h) / fall
+            guard time >= first else { continue }
+            let period = (h + 20) / fall
+            let age = (time - first).truncatingRemainder(dividingBy: period)
+            let lifetime = min(period, 48)
+            guard age < lifetime else { continue }
+            let hit = fallingX(index: i, time: time - age, width: w, wind: weather.wind, sway: 17)
+            let x = hit + weather.wind * min(age, 4) * 2
+            let bin = max(0, min(bins - 1, Int(x / w * Double(bins))))
+            let r = min(cap, max(2, weather.size * depth * (preview ? 0.8 : 1)))
+            let fade = min(1, age * 3, (lifetime - age) * 0.7)
+            let y = h - r * 0.42 - min(cap, heights[bin])
+            var paint = ctx
+            paint.opacity = weather.opacity * fade
+            paint.translateBy(x: x, y: y)
+            paint.rotate(by: .degrees(-24 + variation(i, 25) * 48))
+            paint.scaleBy(x: r * 2.4, y: r * 1.25)
+            paint.fill(leaf, with: .color(Color(rgb: colors[i % colors.count])))
+            paint.stroke(leaf, with: .color(.black.opacity(0.28)), lineWidth: 0.055)
+            heights[bin] += r * 0.45 * fade
+        }
+    }
+
+    private static func drawPumpkins(in ctx: GraphicsContext, size: CGSize, weather: Weather,
+                                     time: Double, preview: Bool) {
+        let w = Double(size.width), h = Double(size.height)
+        let unit = min(w * 0.105, h * 0.15, (17 + weather.size * 2.8) * (preview ? 0.64 : 1))
+        let count = weather.density < 0.25 ? 1 : weather.density < 0.75 ? 2 : 3
+        for i in 0..<count {
+            let scale = unit * [1.0, 0.82, 0.64][i]
+            var p = ctx
+            p.opacity = weather.opacity
+            let x = [0.09, 0.89, 0.155][i] * w
+            p.translateBy(x: x, y: h - scale * 0.42 - 1)
+            p.scaleBy(x: scale, y: scale)
+            let glow = 0.81 + 0.10 * sin(time * 2.1 + Double(i)) + 0.05 * sin(time * 3.6 + Double(i * 3))
+            p.fill(Path(ellipseIn: .init(x: -0.87, y: -0.86, width: 1.74, height: 1.74)),
+                   with: .radialGradient(Gradient(colors: [Color.orange.opacity(0.30 * glow), .clear]),
+                                         center: .zero, startRadius: 0.18, endRadius: 0.87))
+            var stem = Path()
+            stem.move(to: .init(x: 0, y: -0.32))
+            stem.addQuadCurve(to: .init(x: 0.10, y: -0.54), control: .init(x: -0.02, y: -0.47))
+            p.stroke(stem, with: .color(Color(rgb: 0x716144)), style: .init(lineWidth: 0.085, lineCap: .round))
+            for lobe in [-2, 2, -1, 1, 0] {
+                let offset = abs(Double(lobe))
+                let rect = CGRect(x: Double(lobe) * 0.145 - 0.23, y: -0.39 + 0.026 * offset,
+                                  width: 0.46, height: 0.80 - 0.054 * offset)
+                p.fill(Path(ellipseIn: rect), with: .linearGradient(Gradient(colors: [
+                    Color(rgb: 0xf8ab4c), Color(rgb: 0xc86028), Color(rgb: 0x853b25)
+                ]), startPoint: .init(x: 0, y: -0.4), endPoint: .init(x: 0.15, y: 0.42)))
+                p.stroke(Path(ellipseIn: rect), with: .color(.black.opacity(0.13)), lineWidth: 0.018)
+            }
+            var face = Path()
+            for eye in [-0.18, 0.18] {
+                face.move(to: .init(x: eye, y: -0.17))
+                face.addLine(to: .init(x: eye + 0.085, y: -0.02))
+                face.addLine(to: .init(x: eye - 0.085, y: -0.02))
+                face.closeSubpath()
+            }
+            face.move(to: .init(x: -0.27, y: 0.07))
+            face.addQuadCurve(to: .init(x: 0.27, y: 0.07), control: .init(x: 0, y: 0.38))
+            face.addLine(to: .init(x: 0.09, y: 0.13))
+            face.addLine(to: .init(x: 0.08, y: 0.19))
+            face.addLine(to: .init(x: 0.00, y: 0.19))
+            face.addLine(to: .init(x: -0.01, y: 0.13))
+            face.closeSubpath()
+            p.fill(face, with: .color(Color(rgb: 0xffdd81).opacity(glow)))
+            p.stroke(face, with: .color(Color(rgb: 0x854024)), lineWidth: 0.025)
         }
     }
 
@@ -367,7 +457,7 @@ struct ScenePreview: View {
     var focus: Layer? = nil
     @AppStorage("useWallpaperPreview") private var useWallpaper = false
     @State private var wallpaper: NSImage?
-    @State private var snowStarted = ProcessInfo.processInfo.systemUptime
+    @State private var effectStarted = ProcessInfo.processInfo.systemUptime
     init(scene: Scene, focus: Layer? = nil) {
         self.scene = scene
         self.focus = focus
@@ -391,7 +481,7 @@ struct ScenePreview: View {
         TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { tick in
             Canvas { ctx, size in
                 let w = size.width, h = size.height
-                let t = reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 86400)
+                let t = reduceMotion ? 0 : ProcessInfo.processInfo.systemUptime
                 let area = CGRect(origin: .zero, size: size)
                 let sky: [Color] = {
                     switch scene.desktop.effect {
@@ -427,8 +517,8 @@ struct ScenePreview: View {
                     ctx.draw(Image(nsImage: wallpaper), in: CGRect(x: (w - dw)/2, y: (h - dh)/2, width: dw, height: dh))
                 }
                 if focus == nil || focus == .desktop {
-                    let snowAge = reduceMotion ? 40 : 8 + ProcessInfo.processInfo.systemUptime - snowStarted
-                    WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true, snowAge: snowAge)
+                    let effectAge = reduceMotion ? 40 : 8 + ProcessInfo.processInfo.systemUptime - effectStarted
+                    WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true, effectAge: effectAge)
                 }
                 if focus == nil || focus == .menu {
                     var strip = ctx
@@ -454,7 +544,7 @@ struct ScenePreview: View {
             }
         }
         .onAppear { loadWallpaper() }
-        .onChange(of: scene.desktop.accumulatesSnow) { _, _ in snowStarted = ProcessInfo.processInfo.systemUptime }
+        .onChange(of: scene.desktop.effect) { _, _ in effectStarted = ProcessInfo.processInfo.systemUptime }
         .onChange(of: useWallpaper) { _, _ in loadWallpaper() }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityLabel("Preview of the current \(focus?.rawValue ?? "seasonal scene") settings")

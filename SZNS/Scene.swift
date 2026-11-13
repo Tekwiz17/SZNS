@@ -75,6 +75,22 @@ struct Weather: Codable, Equatable {
         get { snowPiles ?? true }
         set { snowPiles = newValue ? nil : false }
     }
+    var leafPiles: Bool?
+    var leafPilesEnabled: Bool {
+        get { leafPiles ?? true }
+        set { leafPiles = newValue ? nil : false }
+    }
+    var supportsPumpkins: Bool { [.leaves, .bats, .ghosts].contains(effect) }
+    var pumpkinOverrides: [String: Bool]?
+    var pumpkinsEnabled: Bool {
+        get { supportsPumpkins && (pumpkinOverrides?[effect.rawValue] ?? (effect != .leaves)) }
+        set {
+            guard supportsPumpkins else { return }
+            var overrides = pumpkinOverrides ?? [:]
+            overrides[effect.rawValue] = newValue == (effect != .leaves) ? nil : newValue
+            pumpkinOverrides = overrides.isEmpty ? nil : overrides
+        }
+    }
     var hasVisibleEffect: Bool { enabled && density > 0 && opacity > 0 }
     var accumulatesSnow: Bool { hasVisibleEffect && effect == .snow && pilesEnabled }
 }

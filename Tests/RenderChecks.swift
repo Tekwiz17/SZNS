@@ -49,7 +49,7 @@ enum RenderChecks {
             weather.pilesEnabled = piles
             weather.density = density
             return pixels { ctx, size in
-                WeatherDrawing.draw(in: ctx, size: size, weather: weather, time: age, preview: true, snowAge: age)
+                WeatherDrawing.draw(in: ctx, size: size, weather: weather, time: age, preview: true, effectAge: age)
             }
         }
         func pilePixels(at age: Double) -> Int {
@@ -70,10 +70,43 @@ enum RenderChecks {
         print("PASS snow growth, bounded depth, stationary frame, opt-out and zero amount")
     }
 
+    static func checkAutumnGround() {
+        var weather = Weather()
+        weather.effect = .leaves
+        weather.colors = [0xbe582d, 0xf4aa46, 0xba303b]
+        weather.density = 0.82
+        weather.size = 8
+        func render(_ weather: Weather, age: Double) -> Data {
+            pixels { ctx, size in WeatherDrawing.draw(in: ctx, size: size, weather: weather,
+                                                      time: 123, preview: true, effectAge: age) }
+        }
+        var bare = weather
+        bare.leafPilesEnabled = false
+        precondition(render(weather, age: 0) == render(bare, age: 0), "Leaves jumped when piles were toggled")
+        let settled = render(weather, age: 18), falling = render(bare, age: 18)
+        precondition(settled != falling, "Settled leaves missing")
+        func checkGroundOnly(_ a: Data, _ b: Data, maxRows: Int) {
+            for i in stride(from: 0, to: a.count, by: 4) where a[i..<i+4] != b[i..<i+4] {
+                let row = i / (256 * 4)
+                precondition(row < maxRows || row >= 144 - maxRows, "Ground decoration displaced falling particles")
+            }
+        }
+        checkGroundOnly(settled, falling, maxRows: 22)
+        var lit = weather
+        lit.pumpkinsEnabled = true
+        let lanterns = render(lit, age: 18)
+        precondition(lanterns != settled && lanterns == render(lit, age: 18), "Missing or unstable jack-o’-lanterns")
+        checkGroundOnly(lanterns, settled, maxRows: 38)
+        lit.density = 0
+        precondition(render(lit, age: 18).allSatisfy { $0 == 0 }, "Zero density left decorations on screen")
+        print("PASS leaf landings, independent pumpkins, ground bounds and still frames")
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         try checkPreferenceRecovery()
         checkSnowPiles()
+        checkAutumnGround()
         var firstFrames = Set<Data>()
         for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns, .bubbles, .rain] {
             var weather = Weather()

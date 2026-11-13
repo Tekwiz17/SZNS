@@ -40,6 +40,8 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 
 With **Desktop → Snow**, flakes build low drifts where they land along each display’s bottom edge. Recent snow gradually melts. Change **Amount** for lighter or heavier snowfall, or turn off **Let snow pile up** for falling flakes alone. Reduce Motion shows a still winter scene. Rain creates brief ripples where drops reach the bottom edge.
 
+In **Desktop → Leaves**, fallen leaves gather into low, wind-shaped piles. Turn **Let leaves gather** off for falling leaves alone. **Jack-o’-lanterns** adds carved pumpkins with candlelight near the lower corners. They come on with Flying Bats and Floating Ghosts, and you can opt in with Leaves. Each effect remembers your choice. Both decorations stay on the wallpaper behind app windows and the Dock.
+
 Bulb design, size, pattern and colors are near the top of the Dock and Menu Bar panes. Expand **Spacing, motion & custom bulbs** or **Cable** to fine-tune the strand. Desktop has its own **Motion & appearance** controls.
 
 ### Take a break
