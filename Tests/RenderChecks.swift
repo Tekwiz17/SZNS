@@ -46,7 +46,7 @@ enum RenderChecks {
         _ = NSApplication.shared
         try checkPreferenceRecovery()
         var firstFrames = Set<Data>()
-        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns] {
+        for effect in [Effect.ballDrop, .bats, .ghosts, .confetti, .aurora, .meteors, .tide, .pond, .lanterns, .bubbles] {
             var weather = Weather()
             weather.effect = effect
             weather.size = 8
@@ -76,9 +76,17 @@ enum RenderChecks {
             lights.size = 18
             return pixels { ctx, size in LightDrawing.draw(in: ctx, size: size, lights: lights, time: 0) }
         }
+        var digits = Lights()
+        digits.bulb = .digits
+        digits.pattern = .steady
+        func yearFrame(_ year: Int) -> Data {
+            pixels { ctx, size in LightDrawing.draw(in: ctx, size: size, lights: digits, time: 0, displayedYear: year) }
+        }
+        precondition(yearFrame(2026) != yearFrame(2027), "Static year bulbs did not change at New Year")
+        print("PASS steady year bulbs reflect a calendar rollover")
         let cable = strand(.oval, density: 0)
         var bulbs = Set<Data>()
-        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval, .prism, .saturn, .jelly, .koi, .skyLantern] {
+        for design in [Bulb.candyCane, .easterEgg, .graduationCap, .egg, .oval, .prism, .saturn, .jelly, .koi, .skyLantern, .seaGlass] {
             let image = strand(design)
             precondition(image != cable && bulbs.insert(image).inserted, "Missing or duplicate \(design.rawValue) design")
             print("PASS rendered distinct \(design.rawValue) strand")

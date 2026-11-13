@@ -88,10 +88,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSToolbarDelegate, NSM
         NSApp.setActivationPolicy(value.showsDock ? .regular : .accessory)
         if value.showsMenu && item == nil {
             let status = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-            let icon = NSImage(systemSymbolName: "sparkles", accessibilityDescription: "SZNS")
-            icon?.isTemplate = true; status.button?.image = icon; status.button?.toolTip = "SZNS"
+            let icon = Self.menuIcon()
+            icon.isTemplate = true; status.button?.image = icon; status.button?.toolTip = "SZNS"
             let menu = NSMenu(); menu.delegate = self; status.menu = menu; item = status
         } else if !value.showsMenu, let item { NSStatusBar.system.removeStatusItem(item); self.item = nil }
+    }
+    private static func menuIcon() -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            NSColor.black.setFill()
+            let blade = NSBezierPath()
+            blade.move(to: NSPoint(x: 8, y: 9.7))
+            blade.curve(to: NSPoint(x: 2.0, y: 12.4), controlPoint1: NSPoint(x: 6.9, y: 12), controlPoint2: NSPoint(x: 2.3, y: 9.8))
+            blade.curve(to: NSPoint(x: 7.1, y: 16.6), controlPoint1: NSPoint(x: 1.3, y: 15.7), controlPoint2: NSPoint(x: 4.8, y: 17.4))
+            blade.curve(to: NSPoint(x: 8, y: 9.7), controlPoint1: NSPoint(x: 9.0, y: 16), controlPoint2: NSPoint(x: 9.8, y: 11.7))
+            blade.close()
+            var quarterTurn = AffineTransform()
+            quarterTurn.translate(x: 9, y: 9)
+            quarterTurn.rotate(byDegrees: 90)
+            quarterTurn.translate(x: -9, y: -9)
+            for _ in 0..<4 {
+                blade.fill()
+                blade.transform(using: quarterTurn)
+            }
+            return true
+        }
+        image.accessibilityDescription = "SZNS"
+        return image
     }
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.removeAllItems()

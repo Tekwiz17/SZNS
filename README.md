@@ -1,4 +1,4 @@
-<p align="center"><img src="SZNS/Assets.xcassets/AppIcon.appiconset/icon-128.png" width="96" alt="Four seasonal lights"></p>
+<p align="center"><img src="SZNS/Assets.xcassets/AppIcon.appiconset/icon-128.png" width="96" alt="SZNS four-petal glass icon"></p>
 
 # SZNS for macOS
 
@@ -33,10 +33,10 @@ If you trust a downloaded SZNS.app and Gatekeeper blocks it as unidentified, try
 | Settings | What you can change |
 | --- | --- |
 | General | Show SZNS in the Dock, menu bar, both or neither. Set launch at login, power saving, wallpaper previews and Accessibility access. Check for new releases or replay the guide. |
-| Presets | Apply one of 21 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
+| Presets | Apply one of 22 ready-made scenes or use any of their palettes on a single layer. Save, duplicate, rename, update or delete a complete scene. Create and edit named palettes or share them as JSON. |
 | Menu Bar | Choose placement above apps or on the desktop. Edit bulb design, spacing, size, density, pattern, speed, variation, opacity and pointer behavior. Adjust the wire color, thickness, span and sag. |
 | Dock | Independently configure the same settings for the Dock. Its strand follows the Dock’s visible bounds and orientation. |
-| Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti, a repeating midnight ball drop, aurora curtains, a meteor shower or drifting jellyfish. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
+| Desktop | Choose snow, leaves, petals, fireflies, rain, fireworks, bats, ghosts, confetti, a repeating midnight ball drop, aurora curtains, a meteor shower, drifting jellyfish, swimming koi, rising lanterns or tide pool bubbles. Adjust particle amount, size, motion, wind, opacity and colors. Falling particles can part around the pointer. Effects stay on the desktop. |
 
 ### Take a break
 
@@ -44,7 +44,7 @@ Open **Settings → General → Quiet Hours** to set a daily start and end in lo
 
 ### Find your next scene
 
-Open **Settings → Presets** and search by name, bulb or desktop effect. For example, type **jellyfish** to find Moonlit Reef. Click the eye to preview a scene, then choose **Apply Scene** or **Close**. Star a scene to pin it to the top of the menu bar’s **Apply Scene** menu. Favorites persist after quitting.
+Open **Settings → Presets** and search by name, bulb or desktop effect. For example, type **jellyfish** to find Moonlit Reef. Click the eye beside a scene to preview it. Select the layers you want to borrow. For example, keep your Dock and menu bar lights and bring in just the bubbles from **Sea Glass**. The preview shows the mix before you apply it. Use **Save current scene** to keep your combination. Star a scene to pin it to the top of the menu bar’s **Apply Scene** menu. Favorites persist after quitting.
 
 ### Celebrations
 
@@ -52,6 +52,7 @@ Every scene below also ships as a named color palette.
 
 | Scene | Menu bar and Dock bulbs | Desktop |
 | --- | --- | --- |
+| Sea Glass | Tumbled glass on both strands | Translucent rising bubbles |
 | Lantern Festival | Paper sky lanterns and lantern bulbs | Rising lanterns with warm centers |
 | Koi Pond | Koi and blossoms | Swimming koi with trailing ripples |
 | Northern Lights | Crystal prisms and icicles | Slow curtains of mint, blue and violet light |
@@ -101,6 +102,12 @@ The **Build SZNS** workflow builds both Debug and Release on macOS, checks the l
 swiftc SZNS/Scene.swift SZNS/DisplayGeometry.swift Tests/main.swift -o /tmp/szns-checks
 /tmp/szns-checks
 ~~~~
+
+### Publishing updates
+
+For each app release, update the marketing version and build number in both Xcode configurations. A successful push to `main` publishes the universal **SZNS-macOS.zip** on [GitHub Releases](https://github.com/Tekwiz17/SZNS/releases). Put release notes in `releases/<version>.md` or let GitHub generate them. Published versions keep their original download.
+
+The workflow checks both architectures with the binary path before `-verify_arch`. The live Dock test observes the accessibility shelf because the system can keep an invisible full-screen Dock input window. The pause test seeds a saved scene and starts the built app under a timeout. Recovery tests locate the backup by filename because filesystem ordering can vary.
 
 For a hands-on check, move and resize the Dock, try its three orientations and auto-hide, and switch displays and Spaces. Open an app over the desktop to check both menu bar placement modes. Save a scene with a custom SVG, quit, reopen and apply it. Try a named shortcut and sleep/wake the Mac. Accessibility approval, real Dock animations and Siri voice invocation require an interactive Mac session.
 

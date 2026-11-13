@@ -15,11 +15,11 @@ try check("Every preference round-trips", try JSONDecoder().decode(Preferences.s
 check("Original four seasonal scenes remain available", Season.allCases.allSatisfy { season in
     original.looks.contains { $0.name == season.rawValue && $0.scene == season.scene }
 })
-check("Every celebration has its matching full scene and palette", (Celebration.collection + Celebration.nightScenes + Celebration.festivalScenes).allSatisfy { item in
+check("Every celebration has its matching full scene and palette", (Celebration.collection + Celebration.nightScenes + Celebration.festivalScenes + [Celebration.seaGlass]).allSatisfy { item in
     original.looks.contains { $0.name == item.name && $0.scene == item.scene } &&
     original.palettes.contains { $0.name == item.name && $0.colors == item.colors }
 })
-check("The full catalog has unique names", original.looks.count == 21 && Set(original.looks.map(\.name)).count == 21)
+check("The full catalog has unique names", original.looks.count == 22 && Set(original.looks.map(\.name)).count == 22)
 let reef = original.looks.first { $0.name == "Moonlit Reef" }!
 check("Search by words across name, effect and bulbs", reef.matches("REEF jellyfish shell") && !reef.matches("reef prism"))
 var versionOne = original
@@ -28,14 +28,32 @@ versionOne.palettes = []
 var v1JSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(versionOne)) as! [String: Any]
 v1JSON["celebrationRevision"] = 1
 var nextVersion = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
-check("1.1 upgrade adds night and festival collections", nextVersion.installCelebrationsIfNeeded() &&
-      nextVersion.looks.count == 6 && nextVersion.palettes.count == 5)
+check("1.1 upgrade installs the newer collections", nextVersion.installCelebrationsIfNeeded() &&
+      nextVersion.looks.count == 7 && nextVersion.palettes.count == 6)
 check("Existing active scene, favorite and IDs survive", nextVersion.scene == versionOne.scene && nextVersion.looks.first == versionOne.looks.first)
 nextVersion.looks.removeLast()
-check("Deleted night scenes stay deleted", !nextVersion.installCelebrationsIfNeeded() && nextVersion.looks.count == 5)
+check("Deleted scenes stay deleted", !nextVersion.installCelebrationsIfNeeded() && nextVersion.looks.count == 6)
 v1JSON["celebrationRevision"] = 2
 var v12 = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
-check("1.2 upgrade installs only the two festival scenes", v12.installCelebrationsIfNeeded() && v12.looks.count == 3 && v12.palettes.count == 2)
+check("1.2 upgrade installs festival scenes and Sea Glass", v12.installCelebrationsIfNeeded() && v12.looks.count == 4 && v12.palettes.count == 3)
+v1JSON["celebrationRevision"] = 3
+var v13 = try JSONDecoder().decode(Preferences.self, from: JSONSerialization.data(withJSONObject: v1JSON))
+check("1.3 upgrade adds Sea Glass once and preserves custom favorites",
+      v13.installCelebrationsIfNeeded() && v13.looks.first == versionOne.looks.first &&
+      v13.looks.last?.scene == Celebration.seaGlass.scene && v13.looks.count == 2 &&
+      v13.palettes.map(\.name) == ["Sea Glass"] && !v13.installCelebrationsIfNeeded())
+var source = Celebration.seaGlass.scene
+source.menu.customMask = Data([1, 2, 3])
+source.dock.enabled = false
+for mask in 0..<8 {
+    let layers = Set(Layer.allCases.enumerated().compactMap { index, layer in
+        mask & (1 << index) == 0 ? nil : layer
+    })
+    let mixed = original.scene.mixing(source, layers: layers)
+    check("Mixing layer selection \(mask) preserves every field", mixed.menu == (layers.contains(.menu) ? source.menu : original.scene.menu) &&
+          mixed.dock == (layers.contains(.dock) ? source.dock : original.scene.dock) &&
+          mixed.desktop == (layers.contains(.desktop) ? source.desktop : original.scene.desktop))
+}
 var local = Calendar(identifier: .gregorian)
 local.timeZone = TimeZone(identifier: "America/New_York")!
 func at(_ hour: Int, _ minute: Int) -> Date {

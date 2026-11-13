@@ -4,7 +4,6 @@ import AppKit
 enum EdgeMount { case top, left, right }
 
 enum LightDrawing {
-    private static let calendarYear = String(Calendar.current.component(.year, from: Date()))
     private static let maskCache: NSCache<NSData, NSImage> = {
         let cache = NSCache<NSData, NSImage>()
         cache.countLimit = 32
@@ -13,7 +12,7 @@ enum LightDrawing {
 
     // The same path describes both the wire and the sockets, keeping each bulb attached.
     static func draw(in context: GraphicsContext, size: CGSize, lights: Lights, time: Double,
-                     edge: EdgeMount = .top, pointer: CGPoint? = nil) {
+                     edge: EdgeMount = .top, pointer: CGPoint? = nil, displayedYear: Int? = nil) {
         var ctx = context
         var mouse = pointer
         var width = size.width
@@ -45,6 +44,7 @@ enum LightDrawing {
         ctx.stroke(cable, with: .color(Color(rgb: lights.wire)), lineWidth: lights.thickness)
         let count = max(1, Int(width / max(lights.size + 2, lights.spacing)))
         let available = lights.colors.isEmpty ? [0xffe3ab] : lights.colors
+        let year = lights.bulb == .year || lights.bulb == .digits ? String(displayedYear ?? Calendar.current.component(.year, from: Date())) : nil
         let kelvin = temperatureColor(lights.temperature)
         for i in 0..<count where variation(i, 6) <= lights.density {
             let x = (Double(i) + 0.5) * width / Double(count)
@@ -80,9 +80,9 @@ enum LightDrawing {
                     mask.shading = .color(color.opacity(0.22 + 0.78 * level))
                     bulb.draw(mask, in: CGRect(x: -0.5, y: -0.5, width: 1, height: 1))
                 }
-            } else if lights.bulb == .year || lights.bulb == .digits {
-                let str = lights.bulb == .year ? String(calendarYear.prefix(2)) + "\n" + String(calendarYear.suffix(2))
-                                               : String(Array(calendarYear)[i % calendarYear.count])
+            } else if let year {
+                let str = lights.bulb == .year ? String(year.prefix(2)) + "\n" + String(year.suffix(2))
+                                               : String(Array(year)[i % year.count])
                 let label = Text(str).font(.system(size: lights.bulb == .year ? 0.55 : 1, weight: .black))
                     .foregroundColor(color.opacity(0.25 + 0.75 * level))
                 bulb.draw(label, at: .zero)
@@ -93,7 +93,7 @@ enum LightDrawing {
                 bulb.fill(shape, with: .linearGradient(Gradient(colors: [color, color, color.opacity(0.62)]),
                                                         startPoint: CGPoint(x: -0.35, y: -0.4),
                                                         endPoint: CGPoint(x: 0.4, y: 0.5)))
-                if lights.bulb == .skyLantern || lights.bulb == .koi {
+                if [.skyLantern, .koi, .seaGlass].contains(lights.bulb) {
                     paintDetails(in: bulb, design: lights.bulb)
                 }
                 if lights.bulb == .prism {
@@ -127,7 +127,13 @@ enum LightDrawing {
     static func paintDetails(in ctx: GraphicsContext, design: Bulb) {
         var paint = ctx
         paint.clip(to: silhouette(design))
-        if design == .koi {
+        if design == .seaGlass {
+            paint.stroke(silhouette(design), with: .color(.white.opacity(0.55)), lineWidth: 0.09)
+            var glint = Path()
+            glint.move(to: .init(x: -0.28, y: -0.06))
+            glint.addQuadCurve(to: .init(x: -0.04, y: -0.34), control: .init(x: -0.25, y: -0.24))
+            paint.stroke(glint, with: .color(.white.opacity(0.82)), style: .init(lineWidth: 0.056, lineCap: .round))
+        } else if design == .koi {
             for rect in [CGRect(x: -0.27, y: -0.22, width: 0.23, height: 0.34),
                          CGRect(x: 0.09, y: -0.05, width: 0.21, height: 0.35)] {
                 paint.fill(Path(ellipseIn: rect), with: .color(.white.opacity(0.85)))
@@ -177,6 +183,14 @@ enum LightDrawing {
             Path(ellipseIn: CGRect(x: -w / 2, y: -h / 2, width: w, height: h))
         }
         switch kind {
+        case .seaGlass:
+            return Path { p in
+                p.move(to: .init(x: 0.12, y: -0.5))
+                p.addCurve(to: .init(x: 0.39, y: 0.23), control1: .init(x: 0.37, y: -0.58), control2: .init(x: 0.49, y: 0.05))
+                p.addCurve(to: .init(x: -0.32, y: 0.37), control1: .init(x: 0.27, y: 0.48), control2: .init(x: -0.12, y: 0.56))
+                p.addCurve(to: .init(x: 0.12, y: -0.5), control1: .init(x: -0.58, y: 0.15), control2: .init(x: -0.20, y: -0.36))
+                p.closeSubpath()
+            }
         case .skyLantern:
             var paper = Path()
             paper.move(to: .init(x: -0.24, y: 0.34))

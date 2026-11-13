@@ -77,7 +77,7 @@ struct PresetSettings: View {
                         Spacer()
                         Swatches(colors: look.scene.menu.colors)
                         Button { sheet = .preview(look) } label: { Image(systemName: "eye") }
-                            .buttonStyle(.borderless).help("Preview " + look.name).accessibilityLabel("Preview " + look.name)
+                            .buttonStyle(.borderless).help("Preview or mix " + look.name).accessibilityLabel("Preview or mix " + look.name)
                         Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
                             .disabled(studio.prefs.scene == look.scene)
                         Menu {
@@ -120,18 +120,7 @@ struct PresetSettings: View {
         .sheet(item: $sheet) { item in
             switch item {
             case .preview(let look):
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(look.name).font(.title2.weight(.semibold))
-                    ScenePreview(scene: look.scene).frame(height: 205)
-                    LabeledContent("Menu bar", value: look.scene.menu.enabled ? look.scene.menu.bulb.displayName : "Off")
-                    LabeledContent("Dock", value: look.scene.dock.enabled ? look.scene.dock.bulb.displayName : "Off")
-                    LabeledContent("Desktop", value: look.scene.desktop.enabled ? look.scene.desktop.effect.rawValue : "Off")
-                    HStack {
-                        Spacer()
-                        Button("Close") { sheet = nil }.keyboardShortcut(.cancelAction)
-                        Button("Apply Scene") { studio.prefs.scene = look.scene; sheet = nil }.keyboardShortcut(.defaultAction)
-                    }
-                }.padding(22).frame(width: 460)
+                MixSceneSheet(look: look, studio: studio)
             case .newScene:
                 NameSheet(title: "Save current scene", initial: "My Scene") { studio.prefs.looks.append(.init(name: $0, scene: studio.prefs.scene)) }
             case .renameScene(let look):
@@ -163,6 +152,50 @@ struct PresetSettings: View {
         }
     }
 }
+private struct MixSceneSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let look: Look
+    @ObservedObject var studio: Studio
+    @State private var selected = Set(Layer.allCases)
+
+    private func detail(_ layer: Layer) -> String {
+        switch layer {
+        case .menu: return look.scene.menu.enabled ? look.scene.menu.bulb.displayName : "Off"
+        case .dock: return look.scene.dock.enabled ? look.scene.dock.bulb.displayName : "Off"
+        case .desktop: return look.scene.desktop.enabled ? look.scene.desktop.effect.rawValue : "Off"
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(look.name).font(.title2.weight(.semibold))
+            ScenePreview(scene: studio.prefs.scene.mixing(look.scene, layers: selected))
+                .frame(height: 180)
+            Text("Choose which layers to apply").font(.headline)
+            ForEach(Layer.allCases, id: \.self) { layer in
+                Toggle(isOn: Binding(get: { selected.contains(layer) }, set: { on in
+                    if on { selected.insert(layer) } else { selected.remove(layer) }
+                })) {
+                    HStack {
+                        Text(layer.rawValue)
+                        Spacer()
+                        Text(detail(layer)).foregroundStyle(.secondary)
+                    }
+                }.toggleStyle(.checkbox)
+            }
+            Divider()
+            HStack {
+                Spacer()
+                Button("Close") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(selected.count == Layer.allCases.count ? "Apply Scene" : "Apply Selected Layers") {
+                    studio.prefs.scene = studio.prefs.scene.mixing(look.scene, layers: selected)
+                    dismiss()
+                }.keyboardShortcut(.defaultAction).disabled(selected.isEmpty)
+            }
+        }.padding(22).frame(width: 460)
+    }
+}
+
 private struct EditPaletteView: View {
     @Environment(\.dismiss) var dismiss
     @State var draft: Palette

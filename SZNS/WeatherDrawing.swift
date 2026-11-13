@@ -44,7 +44,7 @@ enum WeatherDrawing {
             drawBallDrop(in: ctx, size: size, weather: weather, time: t, colors: colors)
             return
         }
-        let flying = [.bats, .ghosts, .tide, .pond, .lanterns].contains(weather.effect)
+        let flying = [.bats, .ghosts, .tide, .pond, .lanterns, .bubbles].contains(weather.effect)
         let number = flying ? max(1, count / 5) : count
         for i in 0..<number {
             let seed = variation(i, 4)
@@ -62,7 +62,7 @@ enum WeatherDrawing {
                 let heading = i.isMultiple(of: 2) ? 1.0 : -1.0
                 x = wrap(seed * w + t * depth * (heading * 22 + weather.wind * 9), w + 64) - 32
                 y = (0.12 + 0.76 * variation(i, 8)) * h + sin(t * 0.42 + seed * 15) * min(34, h * 0.10)
-            } else if [.ghosts, .tide, .lanterns].contains(weather.effect) {
+            } else if [.ghosts, .tide, .lanterns, .bubbles].contains(weather.effect) {
                 y = wrap(variation(i, 8) * h - t * 19 * depth, h + 40) - 20
                 x = wrap(seed * w + weather.wind * t * 20 + sin(t * 0.74 + seed * 30) * 16, w + 32) - 16
             }
@@ -131,6 +131,16 @@ enum WeatherDrawing {
                 let ripple = CGRect(x: -0.50 - wake * 0.65, y: -0.06 - 0.18 * wake,
                                     width: 0.16 + wake * 0.5, height: 0.12 + wake * 0.36)
                 particle.stroke(Path(ellipseIn: ripple), with: .color(color.opacity(0.46 * (1 - wake))), lineWidth: 0.023)
+            case .bubbles:
+                let r = radius * (1.4 + seed)
+                particle.scaleBy(x: r, y: r)
+                let bubble = Path(ellipseIn: CGRect(x: -1, y: -1, width: 2, height: 2))
+                particle.fill(bubble, with: .radialGradient(Gradient(colors: [.clear, color.opacity(0.09), color.opacity(0.52)]),
+                                                            center: .init(x: -0.13, y: -0.14), startRadius: 0.2, endRadius: 1.2))
+                particle.stroke(bubble, with: .color(color.opacity(0.75)), lineWidth: 0.065)
+                var glint = Path()
+                glint.addArc(center: .zero, radius: 0.77, startAngle: .degrees(215), endAngle: .degrees(263), clockwise: false)
+                particle.stroke(glint, with: .color(.white.opacity(0.9)), style: .init(lineWidth: 0.09, lineCap: .round))
             case .lanterns:
                 particle.rotate(by: .degrees(8 * sin(t * 0.7 + seed * 9)))
                 particle.scaleBy(x: radius * 3.7, y: radius * 3.7)
@@ -273,8 +283,6 @@ enum WeatherDrawing {
     }
 }
 
-enum Layer: String, CaseIterable, Sendable { case menu = "Menu Bar", dock = "Dock", desktop = "Desktop" }
-
 struct ScenePreview: View {
     var scene: Scene
     var focus: Layer? = nil
@@ -308,6 +316,7 @@ struct ScenePreview: View {
                 let sky: [Color] = {
                     switch scene.desktop.effect {
                     case .lanterns: return [Color(rgb: 0x29253d), Color(rgb: 0x945b50)]
+                    case .bubbles: return [Color(rgb: 0x174050), Color(rgb: 0x559388)]
                     case .pond: return [Color(rgb: 0x173e3c), Color(rgb: 0x517c71)]
                     case .aurora, .meteors: return [Color(rgb: 0x10182e), Color(rgb: 0x354961)]
                     case .tide: return [Color(rgb: 0x123d50), Color(rgb: 0x142634)]

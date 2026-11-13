@@ -11,6 +11,7 @@ private struct Surface: Equatable {
     var weather: Weather?
     var lowPower: Bool
     var reducedMotion: Bool
+    var displayedYear: Int? = nil
 }
 private struct SurfaceView: View {
     let spec: Surface
@@ -23,7 +24,7 @@ private struct SurfaceView: View {
                 let location = NSEvent.mouseLocation
                 let mouse = CGPoint(x: location.x - spec.frame.minX, y: spec.frame.maxY - location.y)
                 if let light = spec.lights {
-                    LightDrawing.draw(in: context, size: size, lights: light, time: time, edge: spec.edge, pointer: mouse)
+                    LightDrawing.draw(in: context, size: size, lights: light, time: time, edge: spec.edge, pointer: mouse, displayedYear: spec.displayedYear)
                 } else if let weather = spec.weather {
                     WeatherDrawing.draw(in: context, size: size, weather: weather, time: time, pointer: mouse)
                 }
@@ -134,14 +135,18 @@ final class Overlays {
             return
         case .showing: break
         }
-        // A settings change can end a pause before its scheduled wake-up.
-        if inactiveReasons.isEmpty, let timer, timer.fireDate.timeIntervalSince(now) > 0.24 {
+        guard inactiveReasons.isEmpty else { clear(); return }
+        guard p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
+            dockStatus = "Off"
+            clear()
+            timer?.fireDate = .distantFuture
+            return
+        }
+        // Settings notifications wake an idle timer as soon as a layer is enabled.
+        if let timer, timer.fireDate.timeIntervalSince(now) > 0.24 {
             timer.fireDate = now.addingTimeInterval(0.20)
         }
-        guard inactiveReasons.isEmpty, let primary = screens.first, p.scene.dock.enabled || p.scene.menu.enabled || p.scene.desktop.enabled else {
-            if !p.scene.dock.enabled { dockStatus = "Off" }
-            clear(); return
-        }
+        guard let primary = screens.first else { clear(); return }
         let low = shouldSavePower(p.power)
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let needsWindows = p.scene.menu.enabled || p.scene.dock.enabled
@@ -159,6 +164,10 @@ final class Overlays {
         } else {
             dockStatus = Accessibility.granted ? "Waiting for a visible Dock" : "Grant Accessibility to locate this Dock"
         }
+        // A static year strand also needs a new frame at New Year.
+        func displayedYear(for strand: Lights) -> Int? {
+            strand.bulb == .year || strand.bulb == .digits ? Calendar.current.component(.year, from: now) : nil
+        }
         var wanted = [String: Surface]()
         for screen in screens {
             let frame = screen.frame
@@ -169,14 +178,14 @@ final class Overlays {
             if p.scene.menu.enabled, let barBottom = menuBottom(screen, windows: windows, primaryHeight: primary.frame.height) {
                 let h = p.scene.menu.depth
                 let strip = CGRect(x: frame.minX, y: barBottom - h, width: frame.width, height: h)
-                wanted[id + ".menu"] = Surface(layer: .menu, frame: strip, lights: p.scene.menu, lowPower: low, reducedMotion: reduced)
+                wanted[id + ".menu"] = Surface(layer: .menu, frame: strip, lights: p.scene.menu, lowPower: low, reducedMotion: reduced, displayedYear: displayedYear(for: p.scene.menu))
             }
             if let dock, frame == dock.display,
                let (strip, side) = DisplayGeometry.dockStrip(dock.bounds, screen: frame, depth: p.scene.dock.depth) {
                 let edge: EdgeMount = side == .left ? .left : side == .right ? .right : .top
                 let depth = side == .bottom ? strip.height : strip.width
                 let fitted = p.scene.dock.fittingDock(depth: depth)
-                wanted[id + ".dock"] = Surface(layer: .dock, frame: strip, edge: edge, lights: fitted, lowPower: low, reducedMotion: reduced)
+                wanted[id + ".dock"] = Surface(layer: .dock, frame: strip, edge: edge, lights: fitted, lowPower: low, reducedMotion: reduced, displayedYear: displayedYear(for: fitted))
             }
         }
         for key in Array(entries.keys) where wanted[key] == nil { entries.removeValue(forKey: key)?.panel.orderOut(nil) }

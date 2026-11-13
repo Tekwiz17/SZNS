@@ -1,6 +1,7 @@
 import Foundation
 
 enum Bulb: String, CaseIterable, Codable, Sendable {
+    case seaGlass = "Tumbled Sea Glass"
     case koi = "Koi", skyLantern = "Paper Sky Lantern"
     case prism = "Crystal Prism", saturn = "Ringed Planet", jelly = "Jellyfish"
     case oval = "Classic", globe = "Globe", diode = "Diode", icicle = "Icicle"
@@ -17,6 +18,7 @@ enum Pattern: String, CaseIterable, Codable, Sendable {
     case chase = "Chase", wave = "Wave", every = "Every Nth"
 }
 enum Effect: String, CaseIterable, Codable, Sendable {
+    case bubbles = "Tide Pool Bubbles"
     case pond = "Swimming Koi", lanterns = "Rising Lanterns"
     case aurora = "Aurora Curtains", meteors = "Meteor Shower", tide = "Drifting Jellyfish"
     case ballDrop = "Midnight Ball Drop", bats = "Flying Bats", ghosts = "Floating Ghosts", confetti = "Confetti"
@@ -68,10 +70,18 @@ struct Weather: Codable, Equatable {
     var density = 0.42, size = 4.0, speed = 1.0, wind = 0.12, repel = 0.45, opacity = 0.8
     var colors = [0xffffff, 0xd0eaff]
 }
+enum Layer: String, CaseIterable, Sendable { case menu = "Menu Bar", dock = "Dock", desktop = "Desktop" }
+
 struct Scene: Codable, Equatable {
     var menu = Lights()
     var dock = Lights()
     var desktop = Weather()
+
+    func mixing(_ source: Scene, layers: Set<Layer>) -> Scene {
+        Scene(menu: layers.contains(.menu) ? source.menu : menu,
+              dock: layers.contains(.dock) ? source.dock : dock,
+              desktop: layers.contains(.desktop) ? source.desktop : desktop)
+    }
 }
 struct Look: Identifiable, Codable, Equatable {
     var id = UUID()
@@ -131,6 +141,10 @@ struct Celebration {
     var particles: [Int]? = nil
     var speed = 1.0
     var size = 5.0
+
+    static let seaGlass = Celebration(name: "Sea Glass", colors: [0x84deca, 0x8dcff1, 0xfcc784, 0xe7a3be],
+                                      menu: .seaGlass, dock: .seaGlass, pattern: .wave, effect: .bubbles,
+                                      speed: 0.68, size: 9)
 
     static let festivalScenes: [Celebration] = [
         .init(name: "Lantern Festival", colors: [0xffab54, 0xf46b52, 0xffdc95], menu: .skyLantern, dock: .lantern,
@@ -260,8 +274,9 @@ struct Preferences: Codable, Equatable {
     @discardableResult
     mutating func installCelebrationsIfNeeded() -> Bool {
         let revision = celebrationRevision ?? 0
-        guard revision < 3 else { return false }
-        let additions = (revision < 1 ? Celebration.collection : []) + (revision < 2 ? Celebration.nightScenes : []) + Celebration.festivalScenes
+        guard revision < 4 else { return false }
+        let additions = (revision < 1 ? Celebration.collection : []) + (revision < 2 ? Celebration.nightScenes : []) +
+                        (revision < 3 ? Celebration.festivalScenes : []) + [Celebration.seaGlass]
         for item in additions {
             // Keep a user-created preset with the same name independently selectable.
             let lookName = looks.contains { $0.name == item.name } ? item.name + " (SZNS)" : item.name
@@ -269,7 +284,7 @@ struct Preferences: Codable, Equatable {
             looks.append(Look(name: lookName, scene: item.scene))
             palettes.append(Palette(name: paletteName, colors: item.colors))
         }
-        celebrationRevision = 3
+        celebrationRevision = 4
         return true
     }
 }
