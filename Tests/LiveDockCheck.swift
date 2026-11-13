@@ -18,11 +18,27 @@ func movePointer(x: CGFloat, y: CGFloat) {
     CGEvent(mouseEventSource: nil, mouseType: .mouseMoved, mouseCursorPosition: point, mouseButton: .left)?.post(tap: .cghidEventTap)
 }
 if expectHidden { movePointer(x: display.midX, y: display.midY) }
-if reveal { movePointer(x: display.width - 1, y: display.height / 2) }
+func approachRightEdge() {
+    let y = display.height / 2
+    let source = CGEventSource(stateID: .hidSystemState)
+    movePointer(x: display.width - 42, y: y)
+    // Deliver an actual approach and outward motion. Warping straight to the
+    // last point can bypass the Dock's edge activation on a freshly started Dock.
+    var previous = display.width - 42
+    for distance: CGFloat in [24, 12, 4, 1, 0.5, 0.5] {
+        let x = display.width - distance
+        let event = CGEvent(mouseEventSource: source, mouseType: .mouseMoved,
+                            mouseCursorPosition: CGPoint(x: x, y: y), mouseButton: .left)
+        event?.setIntegerValueField(.mouseEventDeltaX, value: Int64(max(1, x - previous)))
+        event?.post(tap: .cghidEventTap)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.04))
+        previous = x
+    }
+}
 var lastDiagnostic = ""
 var measuredLength: CGFloat?
 var matched = false
-for _ in 0..<35 {
+for attempt in 0..<50 {
     let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
     func frames(pid: Int, layer: Int) -> [CGRect] {
         windows.compactMap { w in
@@ -36,11 +52,12 @@ for _ in 0..<35 {
     let overlays = frames(pid: appPID, layer: level + 1)
     let visible = screen.visibleFrame
     lastDiagnostic = "screen=\(display) usable=\(visible) Dock windows=\(docks) SZNS strips=\(overlays)"
-    if expectHidden { matched = overlays.isEmpty }
+    if reveal && docks.isEmpty && attempt.isMultiple(of: 10) { approachRightEdge() }
+    if expectHidden { matched = overlays.isEmpty && docks.isEmpty }
     else if let panel = overlays.first, overlays.count == 1 {
         switch side {
         case "reveal":
-            matched = panel.maxX <= display.maxX + 1 && panel.maxX > display.maxX - 18 && panel.width > 8 && panel.height > 50 && panel.height <= display.height
+            matched = !docks.isEmpty && panel.maxX <= display.maxX + 1 && panel.maxX > display.maxX - 18 && panel.width > 8 && panel.height > 50 && panel.height <= display.height
         case "left":
             matched = visible.minX > display.minX + 15 && abs(panel.maxX - visible.minX) < 10 && panel.height <= display.height
         case "right":
