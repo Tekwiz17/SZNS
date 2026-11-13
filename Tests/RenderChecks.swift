@@ -32,10 +32,13 @@ enum RenderChecks {
         precondition(studio.message != nil)
         studio.save()
         studio.save()
-        let copies = try fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil).filter { $0 != url }
-        let preserved = try Data(contentsOf: copies[0])
+        let names = try fm.contentsOfDirectory(atPath: dir.path)
+        let copies = names.filter { $0.hasPrefix("Preferences-recovery-") && $0.hasSuffix(".json") }
+        precondition(copies.count == 1, "Expected one recovery copy after two saves, found \(names)")
+        let preserved = try Data(contentsOf: dir.appendingPathComponent(copies[0]))
         let saved = try JSONDecoder().decode(Preferences.self, from: Data(contentsOf: url))
-        precondition(copies.count == 1 && preserved == damaged && saved == studio.prefs)
+        precondition(preserved == damaged, "Original settings bytes changed")
+        precondition(saved == studio.prefs, "Written defaults do not match the active settings")
         print("PASS original unreadable preferences preserved across repeated saves")
     }
 
