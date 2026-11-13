@@ -7,7 +7,7 @@ private struct SnowBank {
     let maximum: Double
 
     init(size: CGSize, count: Int, weather: Weather, time: Double, preview: Bool) {
-        let w = size.width, h = size.height
+        let w = Double(size.width), h = Double(size.height)
         let bins = max(8, min(96, Int(w / (preview ? 12 : 26))))
         var deposits = Array(repeating: 0.0, count: bins + 1)
         let meltTime = 75.0
