@@ -44,13 +44,17 @@ In **Desktop → Leaves**, fallen leaves gather into low, wind-shaped piles. Tur
 
 Bulb design, size, pattern and colors are near the top of the Dock and Menu Bar panes. Expand **Spacing, motion & custom bulbs** or **Cable** to fine-tune the strand. Desktop has its own **Motion & appearance** controls.
 
+Colors use a compact palette row with a swatch preview. Choose a named palette or click **Edit…** to adjust individual colors. **Apply** commits your edits and **Cancel** discards them. The palette menu can save your current colors under a new name.
+
+General focuses on app behavior and Quiet Hours. Expand **About SZNS** for update checks, source code and the welcome guide. Scene and palette searches are independent.
+
 ### Take a break
 
 Open **Settings → General → Quiet Hours** to set a daily start and end in local time. An overnight window such as 10 PM to 7 AM works across midnight. Equal start and end times leave the schedule inactive. **Pause Decorations** in the menu bar, or **Pause for…** in General, gives you a 15-, 30-, or 60-minute break. You can end the timed pause early. Quiet Hours still applies during its scheduled window. You can edit or preview scenes while the desktop is paused.
 
 ### Find your next scene
 
-Open **Settings → Presets**, choose **Scenes** or **Color palettes**, and search by name, bulb or desktop effect. For example, type **jellyfish** to find Moonlit Reef. Click the eye beside a scene to preview it. Select the layers you want to borrow. For example, keep your Dock and menu bar lights and bring in just the bubbles from **Sea Glass**. The preview shows the mix before you apply it. Use **Save current scene** to keep your combination. Star a scene to pin it to the top of the menu bar’s **Apply Scene** menu. Favorites persist after quitting.
+Open **Settings → Presets**, choose **Scenes** or **Color palettes**, and search by name, bulb or desktop effect. For example, type **jellyfish** to find Moonlit Reef. Click a scene’s name to preview it. Select the layers you want to borrow. For example, keep your Dock and menu bar lights and bring in just the bubbles from **Sea Glass**. The preview shows the mix before you apply it. Use **Save current scene** to keep your combination. Star a scene to pin it to the top of the menu bar’s **Apply Scene** menu. Favorites persist after quitting.
 
 ### Celebrations
 

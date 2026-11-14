@@ -27,16 +27,18 @@ struct PresetSettings: View {
     @State private var sheet: PresetSheet?
     @State private var removing: UUID?
     @State private var overwrite: UUID?
-    @State private var query = ""
+    @State private var sceneQuery = ""
+    @State private var paletteQuery = ""
+    private var query: Binding<String> { showPalettes ? $paletteQuery : $sceneQuery }
     @State private var favoritesOnly = false
     @State private var showPalettes = false
 
     private var visibleLooks: [Look] {
-        studio.prefs.looks.filter { $0.matches(query) && (!favoritesOnly || $0.favorite == true) }
+        studio.prefs.looks.filter { $0.matches(sceneQuery) && (!favoritesOnly || $0.favorite == true) }
     }
     private var visiblePalettes: [Palette] {
         studio.prefs.palettes.filter { p in
-            query.split(whereSeparator: { $0.isWhitespace }).allSatisfy { p.name.localizedCaseInsensitiveContains(String($0)) }
+            paletteQuery.split(whereSeparator: { $0.isWhitespace }).allSatisfy { p.name.localizedCaseInsensitiveContains(String($0)) }
         }
     }
 
@@ -49,9 +51,9 @@ struct PresetSettings: View {
                 }.pickerStyle(.segmented)
                 HStack {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                    TextField(showPalettes ? "Search color palettes" : "Search scenes, bulbs or effects", text: $query).textFieldStyle(.plain)
-                    if !query.isEmpty {
-                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    TextField(showPalettes ? "Search color palettes" : "Search scenes, bulbs or effects", text: query).textFieldStyle(.plain)
+                    if !query.wrappedValue.isEmpty {
+                        Button { query.wrappedValue = "" } label: { Image(systemName: "xmark.circle.fill") }
                             .buttonStyle(.borderless).accessibilityLabel("Clear search")
                     }
                 }
@@ -74,7 +76,7 @@ struct PresetSettings: View {
                             } label: { Image(systemName: "ellipsis.circle") }.menuStyle(.borderlessButton).fixedSize().accessibilityLabel("Manage " + p.name)
                         }
                     }
-                    if visiblePalettes.isEmpty && !query.isEmpty { Text("No matching palettes.").foregroundStyle(.secondary) }
+                    if visiblePalettes.isEmpty && !paletteQuery.isEmpty { Text("No matching palettes.").foregroundStyle(.secondary) }
                     HStack {
                         Button { sheet = .newPalette } label: { Label("New palette…", systemImage: "plus") }
                         Spacer()
@@ -84,7 +86,7 @@ struct PresetSettings: View {
             } else {
                 Section {
                     if visibleLooks.isEmpty {
-                        Text(favoritesOnly && query.isEmpty ? "Star a scene to find it here." : "No matching scenes.")
+                        Text(favoritesOnly && sceneQuery.isEmpty ? "Star a scene to find it here." : "No matching scenes.")
                             .foregroundStyle(.secondary)
                     }
                     ForEach(visibleLooks) { look in
@@ -99,15 +101,15 @@ struct PresetSettings: View {
                             }
                             .buttonStyle(.borderless)
                             .accessibilityLabel(look.favorite == true ? "Unfavorite " + look.name : "Favorite " + look.name)
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(look.name)
-                                Text("\(look.scene.menu.bulb.displayName) · \(look.scene.desktop.effect.rawValue)")
-                                    .font(.caption).foregroundStyle(.secondary)
+                            Button { sheet = .preview(look) } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(look.name).foregroundStyle(.primary)
+                                    Text(look.scene.desktop.enabled ? look.scene.desktop.effect.rawValue : "Desktop off")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                             }
-                            Spacer()
-                            Swatches(colors: look.scene.menu.colors)
-                            Button { sheet = .preview(look) } label: { Image(systemName: "eye") }
-                                .buttonStyle(.borderless).help("Preview or mix " + look.name).accessibilityLabel("Preview or mix " + look.name)
+                            .buttonStyle(.plain).help("Preview or mix " + look.name)
+                            .accessibilityLabel("Preview or mix " + look.name)
                             Button(studio.prefs.scene == look.scene ? "Applied" : "Apply") { studio.prefs.scene = look.scene }
                                 .disabled(studio.prefs.scene == look.scene)
                             Menu {

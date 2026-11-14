@@ -50,18 +50,71 @@ struct EnumRow<T: RawRepresentable & CaseIterable & Hashable>: View where T.RawV
     }
 }
 
+struct ColorControls: View {
+    @Binding var colors: [Int]
+    @ObservedObject var studio: Studio
+    @State private var editing = false
+    @State private var naming = false
+    private var paletteName: String {
+        studio.prefs.palettes.first { $0.colors == colors }?.name ?? "Custom"
+    }
+    var body: some View {
+        LabeledContent("Colors") {
+            HStack(spacing: 10) {
+                HStack(spacing: 3) {
+                    ForEach(Array(colors.prefix(6).enumerated()), id: \.offset) { _, color in
+                        Circle().fill(Color(rgb: color)).frame(width: 11, height: 11)
+                            .overlay(Circle().stroke(.primary.opacity(0.15)))
+                    }
+                }.accessibilityHidden(true)
+                Menu {
+                    ForEach(studio.prefs.palettes) { palette in
+                        Button(palette.name) { colors = palette.colors }
+                    }
+                    Divider()
+                    Button("Save these colors…") { naming = true }
+                } label: { Text(paletteName).lineLimit(1) }
+                .frame(maxWidth: 160).accessibilityLabel("Color palette")
+                Button("Edit…") { editing = true }
+            }
+        }
+        .sheet(isPresented: $editing) {
+            EditColorsSheet(draft: colors, studio: studio) { colors = $0 }
+        }
+        .sheet(isPresented: $naming) {
+            NameSheet(title: "Save color palette", initial: "My Palette") {
+                studio.prefs.palettes.append(.init(name: $0, colors: colors))
+            }
+        }
+    }
+}
+private struct EditColorsSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State var draft: [Int]
+    @ObservedObject var studio: Studio
+    let commit: ([Int]) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Edit colors").font(.headline)
+            PaletteEditor(colors: $draft, studio: studio)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Apply") { commit(draft); dismiss() }.keyboardShortcut(.defaultAction)
+            }
+        }.padding(22).frame(width: 380)
+    }
+}
+
 struct PaletteEditor: View {
     @Binding var colors: [Int]
     @ObservedObject var studio: Studio
-    @State private var naming = false
     var body: some View {
         HStack {
             Text("Colors")
             Spacer()
             Menu("Palettes") {
                 ForEach(studio.prefs.palettes) { p in Button(p.name) { colors = p.colors } }
-                Divider()
-                Button("Save these colors…") { naming = true }
             }.fixedSize()
         }
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 53, maximum: 70), spacing: 6)], alignment: .leading, spacing: 7) {
@@ -80,9 +133,7 @@ struct PaletteEditor: View {
             Button { colors.append(0xffe1a8) } label: { Image(systemName: "plus") }
                 .disabled(colors.count >= 16).help("Add a color").accessibilityLabel("Add a color")
         }
-        .sheet(isPresented: $naming) {
-            NameSheet(title: "Save color palette", initial: "My Palette") { studio.prefs.palettes.append(.init(name: $0, colors: colors)) }
-        }
+
     }
 }
 struct NameSheet: View {
@@ -137,7 +188,7 @@ struct LightSettings: View {
                 }
                 if light.useTemperature {
                     NumberRow(label: "Temperature", value: $light.temperature, range: 1800...10000, unit: " K", step: 100)
-                } else { PaletteEditor(colors: $light.colors, studio: studio) }
+                } else { ColorControls(colors: $light.colors, studio: studio) }
             }
             Section {
                 DisclosureGroup("Spacing, motion & custom bulbs") {
@@ -188,7 +239,7 @@ struct DesktopSettings: View {
                 }
             }
             Section {
-                PaletteEditor(colors: $studio.prefs.scene.desktop.colors, studio: studio)
+                ColorControls(colors: $studio.prefs.scene.desktop.colors, studio: studio)
                 DisclosureGroup("Motion & appearance") {
                     NumberRow(label: "Size", value: $studio.prefs.scene.desktop.size, range: 1...16, unit: " pt", step: 0.5)
                     NumberRow(label: "Speed", value: $studio.prefs.scene.desktop.speed, range: 0.1...3, unit: "×", step: 0.1)
@@ -288,12 +339,14 @@ struct GeneralSettings: View {
                 Text("SZNS reads the Dock’s position so its lights follow it between displays. Menu bar lights and desktop effects work independently.")
                     .foregroundStyle(.secondary).font(.callout)
             }
-            Section("About") {
-                LabeledContent("SZNS", value: "By Tekwiz17")
-                Link("Source code on GitHub", destination: Studio.source)
-                Toggle("Check for updates automatically", isOn: $automaticUpdates)
-                Button("Check for updates…") { Task { await studio.checkForUpdates() } }
-                Button("Replay welcome guide…") { nav.showingGuide = true }
+            Section {
+                DisclosureGroup("About SZNS") {
+                    LabeledContent("SZNS", value: "By Tekwiz17")
+                    Link("Source code on GitHub", destination: Studio.source)
+                    Toggle("Check for updates automatically", isOn: $automaticUpdates)
+                    Button("Check for updates…") { Task { await studio.checkForUpdates() } }
+                    Button("Replay welcome guide…") { nav.showingGuide = true }
+                }
                 Button("Quit SZNS") { NSApp.terminate(nil) }
             }
         }.formStyle(.grouped)
@@ -308,7 +361,7 @@ struct SettingsView: View {
     @ObservedObject var nav: Navigation
     var body: some View {
         VStack(spacing: 0) {
-            if nav.page != .presets {
+            if [.menu, .dock, .desktop].contains(nav.page) {
                 let focus: Layer? = nav.page == .menu ? .menu : nav.page == .dock ? .dock : nav.page == .desktop ? .desktop : nil
                 ScenePreview(scene: studio.prefs.scene, focus: focus)
                     .frame(height: focus == .dock ? min(230, max(110, studio.prefs.scene.dock.depth + 24)) : focus == .menu ? min(240, max(110, studio.prefs.scene.menu.depth + 12)) : 110).padding(.horizontal, 20).padding(.top, 14)
@@ -316,8 +369,8 @@ struct SettingsView: View {
             switch nav.page {
             case .general: GeneralSettings(studio: studio, nav: nav)
             case .presets: PresetSettings(studio: studio)
-            case .menu: LightSettings(light: $studio.prefs.scene.menu, layer: .menu, studio: studio, nav: nav)
-            case .dock: LightSettings(light: $studio.prefs.scene.dock, layer: .dock, studio: studio, nav: nav)
+            case .menu: LightSettings(light: $studio.prefs.scene.menu, layer: .menu, studio: studio, nav: nav).id(Page.menu)
+            case .dock: LightSettings(light: $studio.prefs.scene.dock, layer: .dock, studio: studio, nav: nav).id(Page.dock)
             case .desktop: DesktopSettings(studio: studio)
             }
         }

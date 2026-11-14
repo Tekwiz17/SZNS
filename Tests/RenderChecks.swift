@@ -102,9 +102,30 @@ enum RenderChecks {
         print("PASS leaf landings, independent pumpkins, ground bounds and still frames")
     }
 
+    static func checkImportedBulbsAndColors() throws {
+        let empty = NSImage(size: .init(width: 20, height: 20), flipped: false) { _ in true }
+        do {
+            _ = try Studio.bulbMask(from: empty)
+            fatalError("Blank imported bulb was accepted")
+        } catch StudioError.invalidSVG { }
+        let narrow = NSImage(size: .init(width: 10, height: 20), flipped: false) { rect in
+            NSColor.white.setFill()
+            rect.fill()
+            return true
+        }
+        let png = try Studio.bulbMask(from: narrow)
+        let bitmap = NSBitmapImageRep(data: png)!
+        precondition(bitmap.colorAt(x: 0, y: 64)?.alphaComponent == 0, "Custom bulb padding is opaque")
+        precondition(bitmap.colorAt(x: 64, y: 64)?.alphaComponent == 1, "Visible custom bulb disappeared")
+        let extended = Color(nsColor: NSColor(srgbRed: 1.2, green: -0.1, blue: 0.5, alpha: 1))
+        precondition(extended.rgb == 0xff0080, "Extended color channels overflowed the RGB palette")
+        print("PASS empty bulb rejection, transparent padding and bounded RGB colors")
+    }
+
     static func main() throws {
         _ = NSApplication.shared
         try checkPreferenceRecovery()
+        try checkImportedBulbsAndColors()
         checkSnowPiles()
         checkAutumnGround()
         var firstFrames = Set<Data>()

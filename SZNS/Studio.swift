@@ -9,8 +9,8 @@ extension Color {
     }
     var rgb: Int {
         guard let c = NSColor(self).usingColorSpace(.sRGB) else { return 0xffffff }
-        return (Int(round(c.redComponent * 255)) << 16) |
-            (Int(round(c.greenComponent * 255)) << 8) | Int(round(c.blueComponent * 255))
+        func channel(_ value: CGFloat) -> Int { Int((min(1, max(0, value)) * 255).rounded()) }
+        return (channel(c.redComponent) << 16) | (channel(c.greenComponent) << 8) | channel(c.blueComponent)
     }
 }
 enum StudioError: LocalizedError {
@@ -84,7 +84,7 @@ final class Studio: ObservableObject {
             let installed = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
             if installed.compare(version, options: .numeric) == .orderedAscending {
                 if silent {
-                    message = "SZNS \(release.tag_name) is available. Choose Check for updates in General to open the release."
+                    message = "SZNS \(release.tag_name) is available. Open General → About SZNS → Check for updates to view the release."
                 } else {
                     NSWorkspace.shared.open(Self.source.appendingPathComponent("releases/latest"))
                 }
@@ -123,20 +123,31 @@ final class Studio: ObservableObject {
             let info = try file.resourceValues(forKeys: [.fileSizeKey])
             guard let bytes = info.fileSize, bytes <= 2_000_000, let art = NSImage(contentsOf: file),
                   art.size.width > 0, art.size.height > 0 else { throw StudioError.invalidSVG }
-            let dim = 128
-            guard let bmp = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: dim, pixelsHigh: dim,
-                       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
-                       bytesPerRow: 0, bitsPerPixel: 0), let graphics = NSGraphicsContext(bitmapImageRep: bmp)
-            else { throw StudioError.invalidSVG }
-            NSGraphicsContext.saveGraphicsState()
-            NSGraphicsContext.current = graphics
-            let ratio = CGFloat(dim) / max(art.size.width, art.size.height)
-            let size = CGSize(width: art.size.width * ratio, height: art.size.height * ratio)
-            art.draw(in: CGRect(x: (CGFloat(dim) - size.width) / 2, y: (CGFloat(dim) - size.height) / 2,
-                                width: size.width, height: size.height))
-            NSGraphicsContext.restoreGraphicsState()
-            guard let png = bmp.representation(using: .png, properties: [:]) else { throw StudioError.invalidSVG }
-            return png
+            return try Self.bulbMask(from: art)
         } catch { message = error.localizedDescription; return nil }
     }
+    static func bulbMask(from art: NSImage) throws -> Data {
+        guard art.size.width > 0, art.size.height > 0 else { throw StudioError.invalidSVG }
+        let dim = 128
+        guard let bmp = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: dim, pixelsHigh: dim,
+                   bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                   bytesPerRow: 0, bitsPerPixel: 0), let graphics = NSGraphicsContext(bitmapImageRep: bmp)
+        else { throw StudioError.invalidSVG }
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = graphics
+        let canvas = CGRect(x: 0, y: 0, width: dim, height: dim)
+        NSColor.clear.setFill()
+        canvas.fill(using: .copy)
+        let ratio = CGFloat(dim) / max(art.size.width, art.size.height)
+        let size = CGSize(width: art.size.width * ratio, height: art.size.height * ratio)
+        art.draw(in: CGRect(x: (CGFloat(dim) - size.width) / 2, y: (CGFloat(dim) - size.height) / 2,
+                            width: size.width, height: size.height))
+        NSGraphicsContext.restoreGraphicsState()
+        let visible = (0..<dim).contains { y in
+            (0..<dim).contains { x in (bmp.colorAt(x: x, y: y)?.alphaComponent ?? 0) > 0 }
+        }
+        guard visible, let png = bmp.representation(using: .png, properties: [:]) else { throw StudioError.invalidSVG }
+        return png
+    }
+
 }

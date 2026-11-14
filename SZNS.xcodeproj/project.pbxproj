@@ -277,8 +277,8 @@
 			buildSettings = {
 				PRODUCT_NAME = SZNS;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tekwiz17.SZNS;
-				CURRENT_PROJECT_VERSION = 7;
-				MARKETING_VERSION = 1.6;
+				CURRENT_PROJECT_VERSION = 8;
+				MARKETING_VERSION = 1.7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SZNS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
@@ -303,8 +303,8 @@
 			buildSettings = {
 				PRODUCT_NAME = SZNS;
 				PRODUCT_BUNDLE_IDENTIFIER = com.tekwiz17.SZNS;
-				CURRENT_PROJECT_VERSION = 7;
-				MARKETING_VERSION = 1.6;
+				CURRENT_PROJECT_VERSION = 8;
+				MARKETING_VERSION = 1.7;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = SZNS;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
