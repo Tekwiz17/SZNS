@@ -457,7 +457,7 @@ struct ScenePreview: View {
     var focus: Layer? = nil
     @AppStorage("useWallpaperPreview") private var useWallpaper = false
     @State private var wallpaper: NSImage?
-    @State private var effectStarted = ProcessInfo.processInfo.systemUptime
+    @State private var effectStarted = Date()
     init(scene: Scene, focus: Layer? = nil) {
         self.scene = scene
         self.focus = focus
@@ -479,9 +479,10 @@ struct ScenePreview: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         TimelineView(.animation(minimumInterval: 1 / 24, paused: reduceMotion)) { tick in
+            let t = reduceMotion ? 0 : tick.date.timeIntervalSinceReferenceDate
+            let effectAge = reduceMotion ? 40 : 8 + max(0, tick.date.timeIntervalSince(effectStarted))
             Canvas { ctx, size in
                 let w = size.width, h = size.height
-                let t = reduceMotion ? 0 : ProcessInfo.processInfo.systemUptime
                 let area = CGRect(origin: .zero, size: size)
                 let sky: [Color] = {
                     switch scene.desktop.effect {
@@ -517,7 +518,6 @@ struct ScenePreview: View {
                     ctx.draw(Image(nsImage: wallpaper), in: CGRect(x: (w - dw)/2, y: (h - dh)/2, width: dw, height: dh))
                 }
                 if focus == nil || focus == .desktop {
-                    let effectAge = reduceMotion ? 40 : 8 + ProcessInfo.processInfo.systemUptime - effectStarted
                     WeatherDrawing.draw(in: ctx, size: size, weather: scene.desktop, time: t, preview: true, effectAge: effectAge)
                 }
                 if focus == nil || focus == .menu {
@@ -544,7 +544,7 @@ struct ScenePreview: View {
             }
         }
         .onAppear { loadWallpaper() }
-        .onChange(of: scene.desktop.effect) { _, _ in effectStarted = ProcessInfo.processInfo.systemUptime }
+        .onChange(of: scene.desktop.effect) { _, _ in effectStarted = Date() }
         .onChange(of: useWallpaper) { _, _ in loadWallpaper() }
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityLabel("Preview of the current \(focus?.rawValue ?? "seasonal scene") settings")

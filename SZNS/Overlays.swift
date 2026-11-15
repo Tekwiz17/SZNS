@@ -15,24 +15,26 @@ private struct Surface: Equatable {
 }
 private struct SurfaceView: View {
     let spec: Surface
-    @State private var effectStarted = ProcessInfo.processInfo.systemUptime
+    @State private var effectStarted = Date()
     var body: some View {
         let staticLights = spec.lights.map { ($0.pattern == .steady || $0.pattern == .off || $0.pattern == .every) && $0.pointer == .none } ?? false
         TimelineView(.animation(minimumInterval: spec.lowPower ? 1.0 / 12 : 1.0 / 30,
                                 paused: spec.reducedMotion || staticLights)) { tick in
+            // Capture the timeline value outside Canvas so SwiftUI invalidates
+            // its drawing on every frame, even when the surface settings match.
+            let time = spec.reducedMotion ? 0 : tick.date.timeIntervalSinceReferenceDate
+            let effectAge = spec.reducedMotion ? 40 : max(0, tick.date.timeIntervalSince(effectStarted))
             Canvas { context, size in
-                let time = spec.reducedMotion ? 0 : ProcessInfo.processInfo.systemUptime
                 let location = NSEvent.mouseLocation
                 let mouse = CGPoint(x: location.x - spec.frame.minX, y: spec.frame.maxY - location.y)
                 if let light = spec.lights {
                     LightDrawing.draw(in: context, size: size, lights: light, time: time, edge: spec.edge, pointer: mouse, displayedYear: spec.displayedYear)
                 } else if let weather = spec.weather {
-                    let effectAge = spec.reducedMotion ? 40 : ProcessInfo.processInfo.systemUptime - effectStarted
                     WeatherDrawing.draw(in: context, size: size, weather: weather, time: time, pointer: mouse, effectAge: effectAge)
                 }
             }
         }
-        .onChange(of: spec.weather?.effect) { _, _ in effectStarted = ProcessInfo.processInfo.systemUptime }
+        .onChange(of: spec.weather?.effect) { _, _ in effectStarted = Date() }
         .accessibilityHidden(true)
     }
 }

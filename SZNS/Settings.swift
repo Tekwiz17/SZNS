@@ -313,6 +313,7 @@ struct GeneralSettings: View {
     @AppStorage("useWallpaperPreview") private var useWallpaper = false
     @AppStorage("automaticReleaseChecks") private var automaticUpdates = false
     @State private var loginStatus = SMAppService.mainApp.status
+    @State private var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     var body: some View {
         Form {
             Section("On your Mac") {
@@ -332,6 +333,10 @@ struct GeneralSettings: View {
             }
             QuietControls(studio: studio)
             Section("Accessibility") {
+                if reduceMotion {
+                    Text("Reduce Motion is enabled in macOS. SZNS shows still decorations.")
+                        .foregroundStyle(.secondary)
+                }
                 LabeledContent("Dock tracking") {
                     if nav.trusted { Label("Allowed", systemImage: "checkmark.circle.fill").foregroundStyle(.green) }
                     else { Button("Grant access…") { Accessibility.request(); Accessibility.openSettings() } }
@@ -352,6 +357,10 @@ struct GeneralSettings: View {
         }.formStyle(.grouped)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loginStatus = SMAppService.mainApp.status
+            reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification)) { _ in
+            reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         }
     }
 }

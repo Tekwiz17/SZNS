@@ -104,9 +104,11 @@ Run SZNS once, open **Shortcuts** on the Mac, create a shortcut, and search for 
 
 For example, make a shortcut named **Start Firefly Hour**, add **Apply SZNS Scene**, and choose **Firefly Hour**. Then ask Siri to “Start Firefly Hour.” macOS exposes App Intents as actions for user-created shortcuts. [Apple’s App Shortcuts guide](https://developer.apple.com/design/human-interface-guidelines/app-shortcuts)
 
+If all decorations are intentionally still, check **System Settings → Accessibility → Display → Reduce motion**. SZNS respects that setting and shows a notice in **General → Accessibility** when it is active.
+
 ## Build checks
 
-The **Build SZNS** workflow builds both Debug and Release on macOS, checks the local signature, app icon and all six Shortcuts actions, checks that first launch displays a native settings window, and packages the app. The settings and geometry checks can also run directly on a Mac with Xcode command-line tools:
+The **Build SZNS** workflow builds both Debug and Release on macOS, checks the local signature, app icon and all six Shortcuts actions, checks that first launch displays a native settings window, compares live window pixels to verify motion in the menu bar, Dock, desktop and preview, and packages the app. The settings and geometry checks can also run directly on a Mac with Xcode command-line tools:
 
 ~~~~sh
 swiftc SZNS/Scene.swift SZNS/DisplayGeometry.swift Tests/main.swift -o /tmp/szns-checks
