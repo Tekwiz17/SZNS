@@ -121,6 +121,7 @@ jobs:
       - name: Verify live animation frames
         timeout-minutes: 2
         run: |
+          defaults write com.apple.universalaccess reduceMotion -bool false
           defaults write com.apple.dock autohide -bool false
           defaults write com.apple.dock orientation -string bottom
           killall Dock
