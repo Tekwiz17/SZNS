@@ -4,6 +4,10 @@
 
 Hang a strand of warm lights from the Dock, tuck icicles under the menu bar, or let petals drift across the desktop. SZNS is an independent, open-source adaptation of [Festivitas](https://festivitas.app/) by **Tekwiz17**. The implementation, interface artwork and seasonal scenes in this repository are original.
 
+<p>
+  <a href="https://www.producthunt.com/products/szns?embed=true&amp;utm_source=embed&amp;utm_medium=post_embed"><img src="docs/product-hunt.png" width="500" alt="SZNS — Seasonal lights and desktop effects for Mac. Check it out on Product Hunt."></a>
+</p>
+
 ## Install the app
 
 [Download SZNS for macOS](https://github.com/Tekwiz17/SZNS/releases/latest/download/SZNS-macOS.zip), unzip it, then move **SZNS.app** to Applications. The release ZIP includes both Intel and Apple silicon. See **Opening a downloaded app** below for Gatekeeper instructions.
